@@ -54,42 +54,42 @@ void TriMesh::readObjAssimp(const std::string &filename)
         for (unsigned int i = 0; i < mesh->mNumVertices; i++)
         {
             // 位置
-            vertex_positions.push_back(glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z));
+            vertex_positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
 
             // 法线 (防崩处理)
             if (mesh->HasNormals())
-                vertex_normals.push_back(glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z));
+                vertex_normals.emplace_back(glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z));
             else
-                vertex_normals.push_back(glm::vec3(0.0f, 1.0f, 0.0f));
+                vertex_normals.emplace_back(glm::vec3(0.0f, 1.0f, 0.0f));
 
             // UV
             if (mesh->mTextureCoords[0])
-                vertex_texcoords.push_back(glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
+                vertex_texcoords.emplace_back(glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
             else
-                vertex_texcoords.push_back(glm::vec2(0.0f, 0.0f));
+                vertex_texcoords.emplace_back(glm::vec2(0.0f, 0.0f));
 
             // 颜色 (将材质 Kd 烘焙进顶点颜色)
             // 钻石剑：color 是蓝色/棕色...
             // Steve：color 通常是白色 (默认)
-            vertex_colors.push_back(glm::vec3(color.r, color.g, color.b));
+            vertex_colors.emplace_back(glm::vec3(color.r, color.g, color.b));
         }
 
         // 遍历面 (索引需要加上 baseIndex)
         for (unsigned int i = 0; i < mesh->mNumFaces; i++)
         {
             aiFace face = mesh->mFaces[i];
-            faces.push_back(vec3i(
+            faces.emplace_back(
                 face.mIndices[0] + baseIndex,
                 face.mIndices[1] + baseIndex,
                 face.mIndices[2] + baseIndex
-            ));
+            );
         }
 
         // 更新偏移量
         baseIndex += mesh->mNumVertices;
 
         // 加载贴图 (如果有的话)
-        auto loadMaps = [&](aiTextureType type, std::string typeName) {
+        auto loadMaps = [&](aiTextureType type, const std::string& typeName) {
             for (unsigned int i = 0; i < material->GetTextureCount(type); i++) {
                 aiString str;
                 material->GetTexture(type, i, &str);
@@ -138,24 +138,24 @@ void TriMesh::readObjAssimp(const std::string &filename)
 void TriMesh::storeFacesPoints()
 {
     // 将索引数据展平
-    for (int i = 0; i < faces.size(); i++)
+    for (auto & face : faces)
     {
         // P0, P1, P2
-        points.push_back(vertex_positions[faces[i].x]);
-        points.push_back(vertex_positions[faces[i].y]);
-        points.push_back(vertex_positions[faces[i].z]);
+        points.push_back(vertex_positions[face.x]);
+        points.push_back(vertex_positions[face.y]);
+        points.push_back(vertex_positions[face.z]);
 
-        normals.push_back(vertex_normals[faces[i].x]);
-        normals.push_back(vertex_normals[faces[i].y]);
-        normals.push_back(vertex_normals[faces[i].z]);
+        normals.push_back(vertex_normals[face.x]);
+        normals.push_back(vertex_normals[face.y]);
+        normals.push_back(vertex_normals[face.z]);
 
-        texcoords.push_back(vertex_texcoords[faces[i].x]);
-        texcoords.push_back(vertex_texcoords[faces[i].y]);
-        texcoords.push_back(vertex_texcoords[faces[i].z]);
+        texcoords.push_back(vertex_texcoords[face.x]);
+        texcoords.push_back(vertex_texcoords[face.y]);
+        texcoords.push_back(vertex_texcoords[face.z]);
 
-        colors.push_back(vertex_colors[faces[i].x]);
-        colors.push_back(vertex_colors[faces[i].y]);
-        colors.push_back(vertex_colors[faces[i].z]);
+        colors.push_back(vertex_colors[face.x]);
+        colors.push_back(vertex_colors[face.y]);
+        colors.push_back(vertex_colors[face.z]);
     }
 
     if (!vao) glGenVertexArrays(1, &vao);
@@ -170,7 +170,7 @@ void TriMesh::storeFacesPoints()
     size_t size_c = colors.size() * sizeof(glm::vec3);
 
     // 分配总内存
-    glBufferData(GL_ARRAY_BUFFER, size_p + size_n + size_t1 + size_c, NULL, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, size_p + size_n + size_t1 + size_c, nullptr, GL_STATIC_DRAW);
 
     // 填充子数据
     glBufferSubData(GL_ARRAY_BUFFER, 0, size_p, &points[0]);
@@ -198,17 +198,22 @@ void TriMesh::storeFacesPoints()
 // ==========================================================
 // 纹理加载 (含默认白图生成)
 // ==========================================================
+// ==========================================================
+// 纹理加载 (含默认白图生成)
+// ==========================================================
 unsigned int TriMesh::loadTexture(const std::string &path, const std::string &directory)
 {
     unsigned int textureID;
     glGenTextures(1, &textureID);
 
-    // 特殊逻辑：生成 1x1 白色纹理
+    // [新增逻辑] 特殊标记：生成 1x1 白色纹理
+    // 用于给没有贴图的模型（如钻石剑）提供默认颜色乘数
     if (path == "internal_white") {
-        unsigned char white[] = {255, 255, 255, 255};
+        unsigned char white[] = {255, 255, 255, 255}; // RGBA
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
-        // 必须设置 Filter，否则可能黑屏
+
+        // 必须设置过滤参数，否则纹理可能无法采样
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -216,20 +221,35 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
         return textureID;
     }
 
+    // 标准文件加载逻辑
     std::string filename = directory + '/' + path;
     int width, height, nrComponents;
+
+    // 确保 stb_image 加载时翻转 Y 轴，否则贴图是倒的
+    // stbi_set_flip_vertically_on_load(true); // 如果你之前没加这句，建议加上
+
     unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
     if (data)
     {
-        GLenum format = (nrComponents == 4) ? GL_RGBA : GL_RGB;
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA; // [关键] Minecraft 皮肤必须支持 RGBA 透明通道
+
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // [关键] Minecraft 风格推荐使用 GL_NEAREST (邻近采样) 保持像素颗粒感
+        // 如果想要平滑效果，保留 GL_LINEAR_MIPMAP_LINEAR
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
         stbi_image_free(data);
     }
@@ -238,6 +258,7 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
         std::cerr << "Texture failed to load at path: " << filename << std::endl;
         stbi_image_free(data);
     }
+
     return textureID;
 }
 

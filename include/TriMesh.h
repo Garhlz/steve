@@ -65,7 +65,7 @@ protected:
 
 	GLuint vao, vbo;
 
-	unsigned int loadTexture(const std::string &path, const std::string &directory);
+	static unsigned int loadTexture(const std::string &path, const std::string &directory);
 };
 
 #endif
