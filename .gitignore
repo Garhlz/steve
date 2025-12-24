@@ -1,0 +1,6 @@
+.idea/
+.vscode/
+clion_build/
+**/tree.txt
+**/repomix-output.xml
+**/diff.txt

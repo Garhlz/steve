@@ -1,0 +1,24 @@
+# Made in Blockbench 5.0.5
+newmtl m_56668ca6-defc-9e2a-ad87-3c5110dd4cec
+# 1. 环境光 (Ambient Color)
+# 稍微给一点点底色，防止背光面死黑
+Ka 0.2 0.2 0.2
+
+# 2. 漫反射 (Diffuse Color)
+# 设为全白 (1.0)，表示完全使用 girl.png 的颜色，不进行变暗处理
+Kd 1.0 1.0 1.0
+
+# 3. 镜面光 (Specular Color)
+# 设为深灰色。Steve是皮肤/布料，不是金属，所以高光不要太强(不要设为 1 1 1)
+Ks 0.1 0.1 0.1
+
+# 4. 高光指数 (Shininess)
+# 对应 OpenGL 的 shininess。数值越小光斑越大越散
+Ns 10.0
+
+# 5. 漫反射贴图
+# 必须保证这个 girl.png 和 mtl 在同一个文件夹！
+map_Kd girl.png
+
+# 这里的 none 材质是 Blockbench 自动生成的空材质，可以留着不管
+newmtl none
