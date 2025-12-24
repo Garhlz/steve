@@ -19,7 +19,7 @@ public:
     ~Steve() = default; // 智能指针会自动释放内存，析构函数可以用默认的
 
     // 初始化：加载模型
-    void init();
+    void init(const std::string& characterName);
 
     // 更新：处理输入和动画计时
     void update(float deltaTime, GLFWwindow* window);

@@ -2,33 +2,37 @@
 #include <iostream>
 
 Steve::Steve() 
-    : position(0.0f), headYaw(0.0f), isArmRaised(false), 
+    : position(0.0f,0.4f,0.0f), headYaw(0.0f), isArmRaised(false),
       walkTime(0.0f), walkSpeed(5.0f), swingRange(45.0f) 
 {
 }
 
-void Steve::init() {
-    // 使用 make_shared 创建对象，更安全高效
-    std::cout << "Initializing Steve..." << std::endl;
-    
+void Steve::init(const std::string& characterName) {
+    std::cout << "Initializing Character: " << characterName << "..." << std::endl;
+
+    // 构造基础路径，例如 "assets/models/minecraft_girl/"
+    std::string basePath = "assets/models/" + characterName + "/";
+
     torso = std::make_shared<TriMesh>();
-    torso->readObjAssimp("assets/models/minecraft_girl/body.obj");
+    // 拼接路径：basePath + "body.obj"
+    torso->readObjAssimp(basePath + "body.obj");
 
     head = std::make_shared<TriMesh>();
-    head->readObjAssimp("assets/models/minecraft_girl/head.obj");
+    head->readObjAssimp(basePath + "head.obj");
 
     leftArm = std::make_shared<TriMesh>();
-    leftArm->readObjAssimp("assets/models/minecraft_girl/left_arm.obj");
+    leftArm->readObjAssimp(basePath + "left_arm.obj");
 
     rightArm = std::make_shared<TriMesh>();
-    rightArm->readObjAssimp("assets/models/minecraft_girl/right_arm.obj");
+    rightArm->readObjAssimp(basePath + "right_arm.obj");
 
     leftLeg = std::make_shared<TriMesh>();
-    leftLeg->readObjAssimp("assets/models/minecraft_girl/left_leg.obj");
+    leftLeg->readObjAssimp(basePath + "left_leg.obj");
 
     rightLeg = std::make_shared<TriMesh>();
-    rightLeg->readObjAssimp("assets/models/minecraft_girl/right_leg.obj");
+    rightLeg->readObjAssimp(basePath + "right_leg.obj");
 
+    // 钻石剑通常是通用的，可以写死或者也参数化
     sword = std::make_shared<TriMesh>();
     sword->readObjAssimp("assets/models/diamond_sword/model.obj");
 }

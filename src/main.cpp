@@ -10,6 +10,8 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Steve.h" // 引入主角
+#include "Scene.h"
+#include "LightManager.h"
 
 // --- 函数声明 ---
 void onWindowResize(GLFWwindow* window, int width, int height);
@@ -33,6 +35,10 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 std::unique_ptr<Steve> steve;
+std::unique_ptr<Scene> scene;
+std::unique_ptr<LightManager> lightManager;
+
+bool pressB = false;
 
 int main()
 {
@@ -73,14 +79,20 @@ int main()
     // 4. 初始化资源
     Shader lightingShader("assets/shaders/lighting_vs.glsl", "assets/shaders/lighting_fs.glsl");
 
+    lightManager = std::make_unique<LightManager>();
+    lightManager->init();
+
     // 初始化 Steve
     steve = std::make_unique<Steve>();
-    steve->init(); // 在这里加载所有模型
+    steve->init("minecraft_girl"); // 在这里加载所有模型
+
+    scene = std::make_unique<Scene>();
+    scene->init();
 
     // 5. 渲染循环
     while (!glfwWindowShouldClose(window))
     {
-        float currentFrame = static_cast<float>(glfwGetTime());
+        auto currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         if (deltaTime > 0.05f) deltaTime = 0.05f;
@@ -90,30 +102,18 @@ int main()
         // 更新 Steve 状态 (头部旋转、举手逻辑都在这里面)
         steve->update(deltaTime, window);
 
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        // [修改 1] 动态设置背景色
+        glm::vec3 sky = lightManager->getSkyColor();
+        glClearColor(sky.r, sky.g, sky.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         lightingShader.use();
         lightingShader.setVec3("viewPos", camera.Position);
         lightingShader.setFloat("material.shininess", 32.0f);
 
-        // 光照设置
-        lightingShader.setVec3("dirLight.direction", -0.2f, -1.0f, -1.0f);
-        lightingShader.setVec3("dirLight.ambient", 0.3f, 0.3f, 0.3f);
-        lightingShader.setVec3("dirLight.diffuse", 0.8f, 0.8f, 0.8f);
-        lightingShader.setVec3("dirLight.specular", 0.1f, 0.1f, 0.1f);
-
-        // 关闭点光源和聚光灯干扰
-        for(int i=0; i<4; i++) {
-             std::string base = "pointLights[" + std::to_string(i) + "]";
-             lightingShader.setVec3(base + ".diffuse", glm::vec3(0.0f));
-             lightingShader.setVec3(base + ".specular", glm::vec3(0.0f));
-             lightingShader.setFloat(base + ".constant", 1.0f);
-             lightingShader.setFloat(base + ".linear", 0.0f);
-             lightingShader.setFloat(base + ".quadratic", 0.0f);
-        }
-        lightingShader.setVec3("spotLight.diffuse", glm::vec3(0.0f));
-        lightingShader.setFloat("spotLight.constant", 1.0f);
+        // [修改 2] 应用光照 (核心解耦)
+        // 以前那一堆 dirLight 和 for 循环全部删掉！
+        lightManager->apply(lightingShader);
 
         // MVP 矩阵
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -121,6 +121,8 @@ int main()
 
         // 调用封装好的函数
         steve->draw(lightingShader, view, projection, camera.Position);
+
+        scene->draw(lightingShader, view, projection, lightManager.get());
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -142,6 +144,16 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.ProcessKeyboard(RIGHT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) camera.ProcessKeyboard(UP, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) camera.ProcessKeyboard(DOWN, deltaTime);
+
+    // [新增] 切换昼夜 (按一次切换一次，防长按连续触发)
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+        if (!pressB) {
+            lightManager->toggleDayNight();
+            pressB = true;
+        }
+    } else {
+        pressB = false;
+    }
 }
 
 void onWindowResize(GLFWwindow* window, int width, int height)
@@ -158,6 +170,8 @@ void onMouseMove(GLFWwindow* window, double xposIn, double yposIn)
     float yoffset = lastY - ypos;
     lastX = xpos; lastY = ypos;
     camera.ProcessMouseMovement(xoffset, yoffset);
+
+
 }
 
 void onMouseScroll(GLFWwindow* window, double xoffset, double yoffset)

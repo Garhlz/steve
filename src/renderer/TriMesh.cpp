@@ -198,9 +198,6 @@ void TriMesh::storeFacesPoints()
 // ==========================================================
 // 纹理加载 (含默认白图生成)
 // ==========================================================
-// ==========================================================
-// 纹理加载 (含默认白图生成)
-// ==========================================================
 unsigned int TriMesh::loadTexture(const std::string &path, const std::string &directory)
 {
     unsigned int textureID;
@@ -223,6 +220,7 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
 
     // 标准文件加载逻辑
     std::string filename = directory + '/' + path;
+    std::cout << "[Texture Debug] Trying to load: " << filename << std::endl;
     int width, height, nrComponents;
 
     // 确保 stb_image 加载时翻转 Y 轴，否则贴图是倒的
