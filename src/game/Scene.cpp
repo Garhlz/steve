@@ -49,7 +49,7 @@ void Scene::draw(Shader& shader, const glm::mat4& view, const glm::mat4& project
         // [核心修改] 判断昼夜
         if (lights->isNightMode()) {
             // === 晚上画月亮 ===
-
+            celestialPos.y *= 0.4f;
             // 【核心修改：高亮月亮】
             // 1. 临时把环境光设为全白 (1.0)，让月亮纹理显示原色，不受黑夜影响
             shader.setVec3("dirLight.ambient", glm::vec3(1.0f, 1.0f, 1.0f));

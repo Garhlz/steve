@@ -1,9 +1,17 @@
 #include "Steve.h"
 #include <iostream>
 
-Steve::Steve() 
-    : position(0.0f,0.4f,0.0f), headYaw(0.0f), isArmRaised(false),
-      walkTime(0.0f), walkSpeed(5.0f), swingRange(45.0f) 
+Steve::Steve()
+    : state(SteveState::IDLE),
+      position(0.0f, 0.4f, 0.0f),
+      front(0.0f, 0.0f, 1.0f), // 初始朝向
+      bodyYaw(180.0f),         // 初始背对Z轴，设为180让他面朝相机(初始+Z)
+      headYaw(0.0f),
+      isArmRaised(false),
+      moveSpeed(4.0f),
+      rotateSpeed(175.0f),     // 转身速度
+      walkTime(0.0f),
+      swingRange(45.0f)
 {
 }
 
@@ -37,45 +45,98 @@ void Steve::init(const std::string& characterName) {
     sword->readObjAssimp("assets/models/diamond_sword/model.obj");
 }
 
-void Steve::update(float dt, GLFWwindow* window) {
-    // 1. 动画计时
-    walkTime += dt;
+void Steve::update(float dt, GLFWwindow* window, bool enableInput) {
+    // 1. 默认重置为 IDLE，检测到按键再改为 WALK
+    state = SteveState::IDLE;
 
-    // 2. 头部控制 (Q/E)
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) headYaw += 100.0f * dt;
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) headYaw -= 100.0f * dt;
-    // 限制头部角度
-    if (headYaw > 60.0f) headYaw = 60.0f;
-    if (headYaw < -60.0f) headYaw = -60.0f;
+    if (enableInput) {
+        // --- 移动控制 (W/S) ---
+        // 根据当前的 bodyYaw 计算前向向量
+        // 注意：sin/cos 的参数取决于你的坐标系习惯。
+        // 这里假设 bodyYaw=0 是指向 -Z，bodyYaw=180 是指向 +Z
+        glm::vec3 dirVector;
+        dirVector.x = -sin(glm::radians(bodyYaw));
+        dirVector.z = -cos(glm::radians(-bodyYaw));
+        dirVector.y = 0.0f;
+        front = glm::normalize(dirVector);
 
-    // 3. 手臂控制 (R)
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
-        isArmRaised = true;
-    else
-        isArmRaised = false;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+            state = SteveState::WALK;
+            position += front * moveSpeed * dt; // 向前
+        }
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            state = SteveState::WALK;
+            position -= front * moveSpeed * dt; // 向后
+        }
+
+        // --- 转向控制 (A/D) ---
+        // 现在 A/D 控制身体旋转，而不是平移
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+            state = SteveState::WALK; // 原地转圈也算动，或者你可以不算
+            bodyYaw += rotateSpeed * dt; // 左转
+        }
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+            state = SteveState::WALK;
+            bodyYaw -= rotateSpeed * dt; // 右转
+        }
+
+        // --- 头部控制 (Q/E) ---
+        // 头部旋转是相对于身体的
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) headYaw += 100.0f * dt;
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) headYaw -= 100.0f * dt;
+        // 限制头部角度
+        if (headYaw > 60.0f) headYaw = 60.0f;
+        if (headYaw < -60.0f) headYaw = -60.0f;
+
+        // --- 交互控制 (R) ---
+        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+            isArmRaised = true;
+        else
+            isArmRaised = false;
+    }
+    // --- 动画计时 ---
+    // 只有在行走状态下，时间才流逝，从而产生摆臂动画
+    if (state == SteveState::WALK) {
+        walkTime += dt;
+    } else {
+        // 可选：如果是 IDLE，可以让四肢慢慢归位
+        // 简单做法：重置 walkTime 到 0 或者最近的由 0 点 (让它停在直立状态)
+        // 这里为了简单，如果不动，就让正弦波参数停止增加，或者重置为0会让它瞬间归位
+        walkTime = 0.0f;
+    }
 }
+
 void Steve::draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPos) {
 
     // --- 1. 动画计算 ---
-    // 保持和你 main.cpp 完全一致的参数
-    float swingAngle = sin(walkTime * walkSpeed) * swingRange;
+    // 摆动角度由状态决定
+    float swingAngle = 0.0f;
+    if (state == SteveState::WALK) {
+        swingAngle = sin(walkTime * moveSpeed * 2.0f) * swingRange; // *2.0f 加快一点频率
+    }
 
-    // 右臂的目标角度 (解决同手同脚问题)
+    // 右臂举手覆盖
     float rightArmTargetAngle = swingAngle;
     if (isArmRaised) {
-        rightArmTargetAngle = -70.0f; // 举平
+        rightArmTargetAngle = -90.0f; // 举平
     }
 
     // --- 2. 基础 Model 矩阵 ---
     auto model = glm::mat4(1.0f);
+
+    // (1) 移动到世界坐标
     model = glm::translate(model, position);
-    // 转身 180 度，面朝相机
-    model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // (2) 应用身体旋转 (bodyYaw)
+    model = glm::rotate(model, glm::radians(bodyYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // (3) [不再需要硬编码的180度转身]
+    // 之前为了让它一开始面朝相机强行加了180度。
+    // 现在我们在构造函数里把 bodyYaw 初始化为 180.0f 即可达到同样效果。
+    // 如果这里再转，逻辑会变乱。直接由 bodyYaw 控制一切。
 
     // 定义旋转轴
-    // armRotateAxis: 专门用于右臂及其子层级 (因为身体转了180度，视觉上X轴反了)
     glm::vec3 armRotateAxis = glm::vec3(-1.0f, 0.0f, 0.0f);
-    // standardAxis:  用于其他肢体 (左臂、腿)，保持默认逻辑
     glm::vec3 standardAxis  = glm::vec3(1.0f, 0.0f, 0.0f);
 
     // -------------------------------------------
@@ -84,10 +145,10 @@ void Steve::draw(Shader& shader, const glm::mat4& view, const glm::mat4& project
     torso->draw(shader.ID, model, view, projection);
 
     // -------------------------------------------
-    // 头部
+    // 头部 (注意：headYaw 是叠加在 bodyYaw 之上的)
     // -------------------------------------------
     glm::mat4 headModel = model;
-    headModel = glm::translate(headModel, glm::vec3(0.0f, 0.37f, 0.0f)); // 0.37 是调试好的参数
+    headModel = glm::translate(headModel, glm::vec3(0.0f, 0.37f, 0.0f));
     headModel = glm::rotate(headModel, glm::radians(headYaw), glm::vec3(0.0f, 1.0f, 0.0f));
     head->draw(shader.ID, headModel, view, projection);
 

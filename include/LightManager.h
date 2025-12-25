@@ -50,9 +50,9 @@ public:
     glm::vec3 getSunDirection() const { return sun.direction; }
 private:
     bool isNight;
-    glm::vec3 currentSkyColor;
+    glm::vec3 currentSkyColor{};
 
-    DirLight sun;
+    DirLight sun{};
     std::vector<PointLight> streetLamps; // 存储4个路灯
 
     // 内部函数：设置白天参数

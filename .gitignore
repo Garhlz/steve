@@ -1,6 +1,16 @@
 .idea/
 .vscode/
+
 clion_build/
+
 **/tree.txt
 **/repomix-output.xml
 **/diff.txt
+
+
+
+#glad.c
+#assets/
+#include/glad/
+#include/KHR/
+#include/stb_image.h

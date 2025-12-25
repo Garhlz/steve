@@ -13,6 +13,12 @@
 #include "TriMesh.h"
 #include "Shader.h"
 
+enum class SteveState {
+    IDLE,       // 站立 (只呼吸，不摆臂)
+    WALK,       // 行走 (摆臂 + 移动)
+    ATTACK      // 攻击 (播放挥剑动画，锁定移动)
+};
+
 class Steve {
 public:
     Steve();
@@ -22,13 +28,18 @@ public:
     void init(const std::string& characterName);
 
     // 更新：处理输入和动画计时
-    void update(float deltaTime, GLFWwindow* window);
+    void update(float deltaTime, GLFWwindow* window, bool enableInput = true);
 
     // 绘制：核心层级建模逻辑
     void draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPos);
 
     // 设置位置（如果以后想移动 Steve）
     void setPosition(glm::vec3 pos) { position = pos; }
+
+    // Getters 用于相机跟随
+    glm::vec3 getPosition() const { return position; }
+    glm::vec3 getFront() const { return front; } // 获取面朝的方向
+    float getBodyYaw() const { return bodyYaw; }
 
 private:
     // 使用 shared_ptr 管理模型
@@ -40,15 +51,22 @@ private:
     std::shared_ptr<TriMesh> rightLeg;
     std::shared_ptr<TriMesh> sword;
 
-    // 状态变量
-    glm::vec3 position;
-    float headYaw;
-    bool isArmRaised;
-    
-    // 动画变量
-    float walkTime;
-    float walkSpeed;
-    float swingRange;
+    // --- 状态变量 ---
+    SteveState state;       // 当前动作状态
+    glm::vec3 position;     // 世界坐标位置
+    glm::vec3 front;        // 面朝方向向量
+
+    float bodyYaw;          // [新增] 身体的绝对旋转角度 (0度=初始方向)
+    float headYaw;          // 头部相对身体的旋转角度
+    bool isArmRaised;       // 举手状态
+
+    // --- 属性设置 ---
+    float moveSpeed;        // 移动速度
+    float rotateSpeed;      // 转身速度 (度/秒)
+
+    // --- 动画变量 ---
+    float walkTime;         // 只有行走时才累加
+    float swingRange;       // 摆动幅度
 
     // 辅助绘制函数
     static void drawLimb(const std::shared_ptr<TriMesh>& mesh, Shader& shader,

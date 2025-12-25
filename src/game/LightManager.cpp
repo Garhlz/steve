@@ -63,7 +63,8 @@ void LightManager::setNight() {
 
     // --- 月亮 (方向光) ---
     // 晚上：微弱的蓝调冷光
-    sun.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
+    // sun.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
+    sun.direction = glm::normalize(glm::vec3(-1.0f, -0.5f, -1.0f));
     sun.ambient   = glm::vec3(0.05f, 0.05f, 0.1f); // 非常暗
     sun.diffuse   = glm::vec3(0.1f, 0.1f, 0.2f);   // 只有一点点月光
     sun.specular  = glm::vec3(0.1f, 0.1f, 0.1f);
