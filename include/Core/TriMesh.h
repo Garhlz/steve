@@ -33,8 +33,10 @@ public:
 
 	// 支持自动加载贴图 + 自动烘焙材质颜色
 	void readObjAssimp(const std::string &filename);
-
-	void draw(GLuint program, const glm::mat4 &model, const glm::mat4 &view, const glm::mat4 &proj);
+	// 新增一个只画几何体的方法，用于阴影 Pass 或者自定义 Shader
+	void drawGeometry(GLuint program, const glm::mat4 &model);
+	// 简化原有的 draw
+	void draw(GLuint program, const glm::mat4 &model);
 	void storeFacesPoints();
 	void cleanData();
 

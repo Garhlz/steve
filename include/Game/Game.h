@@ -59,6 +59,8 @@ private:
     // [新增] GUI 管理器
     std::unique_ptr<UIManager> uiManager;
 
+    std::shared_ptr<Shader> depthShader;
+
     std::vector<AABB> staticObstacles;
     bool pressB;
 };

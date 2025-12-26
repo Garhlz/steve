@@ -282,9 +282,21 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
     return textureID;
 }
 
-void TriMesh::draw(GLuint program, const glm::mat4 &model, const glm::mat4 &view, const glm::mat4 &proj)
+// 纯几何绘制：适用于阴影生成阶段 (Shadow Pass)
+// 不需要传 View/Proj，也不需要绑定纹理，只需要 Model 矩阵
+void TriMesh::drawGeometry(GLuint program, const glm::mat4 &model) {
+    glUniformMatrix4fv(glGetUniformLocation(program, "model"), 1, GL_FALSE, &model[0][0]);
+
+    glBindVertexArray(vao);
+    glDrawArrays(GL_TRIANGLES, 0, points.size());
+    glBindVertexArray(0);
+}
+
+// 标准绘制：适用于主渲染阶段 (已解耦 View/Proj)
+void TriMesh::draw(GLuint program, const glm::mat4 &model)
 {
-    glUseProgram(program);
+    // 这里不再调用 glUseProgram(program)，假设外部已经 Use 了
+    // 也不再传 View 和 Projection，假设外部已经传了全局 Uniform
 
     unsigned int diffuseNr = 1;
     unsigned int specularNr = 1;
@@ -302,12 +314,21 @@ void TriMesh::draw(GLuint program, const glm::mat4 &model, const glm::mat4 &view
         glBindTexture(GL_TEXTURE_2D, textures[i].id);
     }
 
+    // 上传 Model 矩阵
     glUniformMatrix4fv(glGetUniformLocation(program, "model"), 1, GL_FALSE, &model[0][0]);
-    glUniformMatrix4fv(glGetUniformLocation(program, "view"), 1, GL_FALSE, &view[0][0]);
-    glUniformMatrix4fv(glGetUniformLocation(program, "projection"), 1, GL_FALSE, &proj[0][0]);
+
+
+
+    // 补回材质的高光系数 (Shininess)
+    // 许多光照算法如果 shininess 为 0 会导致高光计算错误，甚至全黑
+    glUniform1f(glGetUniformLocation(program, "material.shininess"), shininess);
 
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLES, 0, points.size());
+
+    // 恢复默认
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(0);
 }
 
 void TriMesh::cleanData()

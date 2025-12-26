@@ -5,8 +5,10 @@ in vec3 TexCoords;
 
 // Cubemap 采样器
 uniform samplerCube skybox;
-
+uniform float intensity;
 void main()
 {
-    FragColor = texture(skybox, TexCoords);
+    vec4 texColor = texture(skybox, TexCoords);
+    // 颜色 * 亮度系数
+    FragColor = texColor * intensity;
 }

@@ -21,7 +21,6 @@ void UIManager::Init(GLFWwindow* window) {
     // 3. 初始化绑定
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
-
     // 放大字体
     io.FontGlobalScale = 2.0f;
 }

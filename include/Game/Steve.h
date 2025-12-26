@@ -31,8 +31,10 @@ public:
     // 更新：处理输入和动画计时
     void update(float deltaTime, GLFWwindow* window, bool enableInput = true);
 
-    // 绘制：核心层级建模逻辑
-    void draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, const glm::vec3& cameraPos);
+    // 移除 view, projection, cameraPos (不需要传进去了)
+    void draw(Shader& shader);
+    // 新增阴影绘制接口
+    void drawShadow(Shader& shader);
 
     // 设置位置（如果以后想移动 Steve）
     void setPosition(glm::vec3 pos) { position = pos; }
@@ -78,11 +80,21 @@ private:
     float swingRange;       // 摆动幅度
     float swingTime;        // [新增] 挥剑动画时间
 
+    // [新增] 物理属性
+    float verticalVelocity; // 当前垂直速度
+    float gravity;          // 重力加速度 (建议 20.0f ~ 30.0f，游戏里通常比现实大)
+    float jumpForce;        // 跳跃瞬间的向上速度 (建议 8.0f ~ 12.0f)
+    bool isGrounded;        // 是否在地面上
+
+    // 地面高度 (假设平地是 Y=0，如果你的模型中心在腰部，这里可能需要是 0.9f)
+    // 根据你之前的代码，初始 Y 是 1.141f，我们暂定这就是“地面上的平衡高度”
+    float groundLevel;
+
     // 辅助绘制函数
     static void drawLimb(const std::shared_ptr<TriMesh>& mesh, Shader& shader,
-                  glm::mat4 parentModel, glm::vec3 offset, float angle, 
-                  const glm::mat4& view, const glm::mat4& projection, 
-                  glm::vec3 rotateAxis = glm::vec3(1.0f, 0.0f, 0.0f));
+                     glm::mat4 parentModel, glm::vec3 offset, float angle,
+                     glm::vec3 rotateAxis);
+
 
     // [新增] 私有辅助函数
     glm::vec3 processMovementInput(GLFWwindow* window, float dt);

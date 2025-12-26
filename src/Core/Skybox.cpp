@@ -111,6 +111,15 @@ void Skybox::draw(const glm::mat4& view, const glm::mat4& projection, bool isNig
     skyboxShader->setMat4("view", viewNoTrans);
     skyboxShader->setMat4("projection", projection);
 
+    // [新增] 控制亮度
+    if (isNight) {
+        // 夜晚：把贴图压暗到 20% ~ 40%
+        skyboxShader->setFloat("intensity", 0.6f);
+    } else {
+        // 白天：保持原样
+        skyboxShader->setFloat("intensity", 1.0f);
+    }
+
     // 3. 绑定贴图
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, isNight ? nightTextureID : dayTextureID);

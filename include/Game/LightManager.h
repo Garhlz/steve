@@ -48,6 +48,18 @@ public:
     const std::vector<PointLight>& getStreetLamps() const { return streetLamps; }
 
     glm::vec3 getSunDirection() const { return sun.direction; }
+
+    // [新增] 初始化阴影贴图 (FBO)
+    void initShadows();
+
+    // [新增] 获取阴影相关的 ID 和 尺寸
+    unsigned int getShadowMap() const { return depthMap; }
+    unsigned int getShadowFBO() const { return depthMapFBO; }
+    unsigned int getShadowWidth() const { return SHADOW_WIDTH; }
+    unsigned int getShadowHeight() const { return SHADOW_HEIGHT; }
+
+    // [修改] 接收中心点位置（通常是玩家位置）
+    glm::mat4 getLightSpaceMatrix(glm::vec3 centerPos) const;
 private:
     bool isNight;
     glm::vec3 currentSkyColor{};
@@ -59,6 +71,11 @@ private:
     void setDay();
     // 内部函数：设置黑夜参数
     void setNight();
+
+    // [新增] 阴影资源
+    unsigned int depthMapFBO;
+    unsigned int depthMap;
+    const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048; // 高分辨率阴影
 };
 
 #endif
