@@ -16,14 +16,21 @@ find_package(glfw3 CONFIG REQUIRED)      # 使用 CONFIG 模式查找 vcpkg 提�
 find_package(glm CONFIG REQUIRED)        # 同上
 find_package(OpenGL REQUIRED)            # OpenGL 通常仍然由系统提供
 find_package(assimp CONFIG REQUIRED)
-
+find_package(imgui CONFIG REQUIRED)
+#find_package(stb CONFIG REQUIRED)
 # ==========================================
 # 2. 源代码管理 & 生成可执行文件
 # ==========================================
 
 # A. 先扫描源文件
 # 自动扫描 src 下所有的 .cpp 和 .c 文件
-file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
+file(GLOB_RECURSE SOURCES
+		"src/Core/*.cpp"
+		"src/Game/*.cpp"
+		"src/Vendor/*.c"
+		"src/Vendor/*.cpp"
+		"src/*.cpp"
+)
 
 # B. 必须先创建可执行文件目标，后面才能对它进行设置
 add_executable(${PROJECT_NAME} ${SOURCES})
@@ -33,7 +40,12 @@ add_executable(${PROJECT_NAME} ${SOURCES})
 # ==========================================
 
 # target 已经存在了，可以设置包含目录了
-target_include_directories(${PROJECT_NAME} PRIVATE include)
+target_include_directories(${PROJECT_NAME} PRIVATE
+		include/Core
+		include/Game
+		include/Vendor
+		include
+)
 
 # 链接库
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -41,6 +53,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 		glm::glm
 		OpenGL::GL
 		assimp::assimp
+		imgui::imgui
+#		stb::stb
 		${CMAKE_DL_LIBS} # Linux 下需要的动态加载库
 )
 

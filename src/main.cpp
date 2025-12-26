@@ -1,8 +1,7 @@
-#include <glad/glad.h>
+#include <Vendor/glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
-
-#include "Game.h"
+#include "Game/Game.h"
 
 // --- 全局变量 ---
 Game* steveGame = nullptr;
@@ -32,7 +31,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Steve Walking - Engine", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Steve's Adventure - Elaine", nullptr, nullptr);
     if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -44,7 +43,7 @@ int main()
     glfwSetFramebufferSizeCallback(window, onWindowResize);
     glfwSetCursorPosCallback(window, onMouseMove);
     glfwSetScrollCallback(window, onMouseScroll);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;

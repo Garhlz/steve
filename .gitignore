@@ -9,6 +9,5 @@ clion_build/
 
 #glad.c
 #assets/
-#include/glad/
-#include/KHR/
-#include/stb_image.h
+#include/Vendor/glad/
+#include/Vendor/KHR/
