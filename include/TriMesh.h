@@ -44,6 +44,10 @@ public:
 	void setSpecular(glm::vec4 s) { specular = s; }
 	void setShininess(float s) { shininess = s; }
 
+	// 获取模型的局部坐标系包围盒
+	glm::vec3 getMinBound() const { return minBound; }
+	glm::vec3 getMaxBound() const { return maxBound; }
+	glm::vec3 getSize() const { return maxBound - minBound; } // 原始长宽高
 protected:
 	// 原始数据
 	std::vector<glm::vec3> vertex_positions;
@@ -66,6 +70,10 @@ protected:
 	GLuint vao, vbo;
 
 	static unsigned int loadTexture(const std::string &path, const std::string &directory);
+
+	// 存储原始边界
+	glm::vec3 minBound;
+	glm::vec3 maxBound;
 };
 
 #endif

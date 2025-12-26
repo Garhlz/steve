@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "LightManager.h"
-
+#include "Skybox.h"
 class Scene {
 public:
     Scene();
@@ -20,6 +20,9 @@ private:
     std::shared_ptr<TriMesh> sunMesh;       // 太阳模型
     std::shared_ptr<TriMesh> moonMesh;
     std::shared_ptr<TriMesh> lampMesh;      // 路灯模型
+    std::shared_ptr<TriMesh> treeMesh;
+
+    std::shared_ptr<Skybox> skybox;
 };
 
 #endif

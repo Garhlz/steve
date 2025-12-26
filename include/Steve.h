@@ -10,6 +10,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <GLFW/glfw3.h>
 
+#include "AABB.h"
 #include "TriMesh.h"
 #include "Shader.h"
 
@@ -41,6 +42,14 @@ public:
     glm::vec3 getFront() const { return front; } // 获取面朝的方向
     float getBodyYaw() const { return bodyYaw; }
 
+    // update 增加障碍物参数
+    void update(float dt, GLFWwindow* window, const std::vector<AABB>& obstacles, bool enableInput = true);
+
+    // 获取 Steve 当前的包围盒
+    AABB getAABB() const {
+        // Steve 尺寸：宽 0.6, 高 1.8, 厚 0.6
+        return AABB(position + glm::vec3(0.0f, 0.9f, 0.0f), glm::vec3(0.6f, 1.8f, 0.6f));
+    }
 private:
     // 使用 shared_ptr 管理模型
     std::shared_ptr<TriMesh> torso;
@@ -73,6 +82,12 @@ private:
                   glm::mat4 parentModel, glm::vec3 offset, float angle, 
                   const glm::mat4& view, const glm::mat4& projection, 
                   glm::vec3 rotateAxis = glm::vec3(1.0f, 0.0f, 0.0f));
+
+    // [新增] 私有辅助函数
+    glm::vec3 processMovementInput(GLFWwindow* window, float dt);
+    void applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& obstacles);
+    void processActions(GLFWwindow* window, float dt);
+    void updateAnimation(float dt);
 };
 
 #endif

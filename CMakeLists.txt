@@ -25,14 +25,14 @@ find_package(assimp CONFIG REQUIRED)
 # 自动扫描 src 下所有的 .cpp 和 .c 文件
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
 
-# B. 【关键修改】必须先创建可执行文件目标，后面才能对它进行设置
+# B. 必须先创建可执行文件目标，后面才能对它进行设置
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # ==========================================
 # 3. 配置目标属性 (Include & Link)
 # ==========================================
 
-# 【关键修改】现在 target 已经存在了，可以设置包含目录了
+# target 已经存在了，可以设置包含目录了
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
 # 链接库

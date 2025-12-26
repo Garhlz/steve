@@ -59,7 +59,8 @@ private:
     std::shared_ptr<Scene> scene;
     std::shared_ptr<LightManager> lightManager;
     std::shared_ptr<CameraController> camController;
-    
+    // 存储场景里所有的静态碰撞盒
+    std::vector<AABB> staticObstacles;
     // 防抖动变量
     bool pressB;
 };

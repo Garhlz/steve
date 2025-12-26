@@ -36,6 +36,10 @@ void TriMesh::readObjAssimp(const std::string &filename)
     cleanData();
     std::string directory = filename.substr(0, filename.find_last_of('/'));
 
+    // 初始化边界为极大/极小值
+    minBound = glm::vec3(1e9f); // 正无穷
+    maxBound = glm::vec3(-1e9f); // 负无穷
+
     // 记录合并 Mesh 时的索引偏移量
     unsigned int baseIndex = 0;
 
@@ -54,7 +58,17 @@ void TriMesh::readObjAssimp(const std::string &filename)
         for (unsigned int i = 0; i < mesh->mNumVertices; i++)
         {
             // 位置
-            vertex_positions.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+            glm::vec3 pos(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+            vertex_positions.push_back(pos);
+
+            // 更新边界
+            minBound.x = std::min(minBound.x, pos.x);
+            minBound.y = std::min(minBound.y, pos.y);
+            minBound.z = std::min(minBound.z, pos.z);
+
+            maxBound.x = std::max(maxBound.x, pos.x);
+            maxBound.y = std::max(maxBound.y, pos.y);
+            maxBound.z = std::max(maxBound.z, pos.z);
 
             // 法线 (防崩处理)
             if (mesh->HasNormals())
@@ -128,6 +142,14 @@ void TriMesh::readObjAssimp(const std::string &filename)
 
     std::cout << "Loaded Model: " << filename << " | Meshes: " << scene->mNumMeshes
               << " | Textures: " << textures.size() << std::endl;
+
+    // 打印调试信息：边界盒 (AABB)
+    std::cout << "  [DEBUG] Bounds for " << filename << ":" << std::endl;
+    std::cout << "    Min: (" << minBound.x << ", " << minBound.y << ", " << minBound.z << ")" << std::endl;
+    std::cout << "    Max: (" << maxBound.x << ", " << maxBound.y << ", " << maxBound.z << ")" << std::endl;
+    std::cout << "    Size: (" << maxBound.x - minBound.x << ", "
+                               << maxBound.y - minBound.y << ", "
+                               << maxBound.z - minBound.z << ")" << std::endl;
 
     storeFacesPoints();
 }

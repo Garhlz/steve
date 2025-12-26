@@ -7,8 +7,6 @@ clion_build/
 **/repomix-output.xml
 **/diff.txt
 
-
-
 #glad.c
 #assets/
 #include/glad/

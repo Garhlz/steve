@@ -59,11 +59,11 @@ void CameraController::processKeyboard(GLFWwindow* window, float dt) {
         if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) camera->ProcessKeyboard(DOWN, dt);
         
         // 这种模式下，Steve 不动 (传入 false)
-        steve->update(dt, window, false);
+        // steve->update(dt, window, false);
     } 
     else {
         // 第三人称：键盘控制 Steve 移动 (传入 true)
-        steve->update(dt, window, true);
+        // steve->update(dt, window, true);
         
         // 相机不响应键盘，因为相机要自动跟随
     }

@@ -1,9 +1,12 @@
 #include "Steve.h"
 #include <iostream>
 
+#include "ResourceManager.h"
+
 Steve::Steve()
     : state(SteveState::IDLE),
-      position(0.0f, 0.4f, 0.0f),
+      position(0.0f, 1.141f, 5.0f),
+// 脚部原本的最低位置加上偏移量即可
       front(0.0f, 0.0f, 1.0f), // 初始朝向
       bodyYaw(180.0f),         // 初始背对Z轴，设为180让他面朝相机(初始+Z)
       headYaw(0.0f),
@@ -18,90 +21,150 @@ Steve::Steve()
 void Steve::init(const std::string& characterName) {
     std::cout << "Initializing Character: " << characterName << "..." << std::endl;
 
-    // 构造基础路径，例如 "assets/models/minecraft_girl/"
     std::string basePath = "assets/models/" + characterName + "/";
+    // [修改] 使用 ResourceManager 获取资源
+    // 即使你创建 10 个 Steve，它们现在共享同一份内存中的 Vertex Data
+    torso    = ResourceManager::getInstance().getMesh(basePath + "body.obj");
+    head     = ResourceManager::getInstance().getMesh(basePath + "head.obj");
+    leftArm  = ResourceManager::getInstance().getMesh(basePath + "left_arm.obj");
+    rightArm = ResourceManager::getInstance().getMesh(basePath + "right_arm.obj");
+    leftLeg  = ResourceManager::getInstance().getMesh(basePath + "left_leg.obj");
+    rightLeg = ResourceManager::getInstance().getMesh(basePath + "right_leg.obj");
 
-    torso = std::make_shared<TriMesh>();
-    // 拼接路径：basePath + "body.obj"
-    torso->readObjAssimp(basePath + "body.obj");
-
-    head = std::make_shared<TriMesh>();
-    head->readObjAssimp(basePath + "head.obj");
-
-    leftArm = std::make_shared<TriMesh>();
-    leftArm->readObjAssimp(basePath + "left_arm.obj");
-
-    rightArm = std::make_shared<TriMesh>();
-    rightArm->readObjAssimp(basePath + "right_arm.obj");
-
-    leftLeg = std::make_shared<TriMesh>();
-    leftLeg->readObjAssimp(basePath + "left_leg.obj");
-
-    rightLeg = std::make_shared<TriMesh>();
-    rightLeg->readObjAssimp(basePath + "right_leg.obj");
-
-    // 钻石剑通常是通用的，可以写死或者也参数化
-    sword = std::make_shared<TriMesh>();
-    sword->readObjAssimp("assets/models/diamond_sword/model.obj");
+    sword    = ResourceManager::getInstance().getMesh("assets/models/diamond_sword/model.obj");
 }
 
-void Steve::update(float dt, GLFWwindow* window, bool enableInput) {
-    // 1. 默认重置为 IDLE，检测到按键再改为 WALK
-    state = SteveState::IDLE;
+// [重构] 主 Update 函数变得非常清爽
+void Steve::update(float dt, GLFWwindow* window, const std::vector<AABB>& obstacles, bool enableInput) {
+    state = SteveState::IDLE; // 默认重置状态
 
     if (enableInput) {
-        // --- 移动控制 (W/S) ---
-        // 根据当前的 bodyYaw 计算前向向量
-        // 注意：sin/cos 的参数取决于你的坐标系习惯。
-        // 这里假设 bodyYaw=0 是指向 -Z，bodyYaw=180 是指向 +Z
-        glm::vec3 dirVector;
-        dirVector.x = -sin(glm::radians(bodyYaw));
-        dirVector.z = -cos(glm::radians(-bodyYaw));
-        dirVector.y = 0.0f;
-        front = glm::normalize(dirVector);
+        // 1. 处理移动输入并计算速度向量
+        glm::vec3 velocity = processMovementInput(window, dt);
 
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            state = SteveState::WALK;
-            position += front * moveSpeed * dt; // 向前
-        }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            state = SteveState::WALK;
-            position -= front * moveSpeed * dt; // 向后
-        }
+        // 2. 应用物理碰撞并移动
+        applyCollisionAndMove(velocity, obstacles);
 
-        // --- 转向控制 (A/D) ---
-        // 现在 A/D 控制身体旋转，而不是平移
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            state = SteveState::WALK; // 原地转圈也算动，或者你可以不算
-            bodyYaw += rotateSpeed * dt; // 左转
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            state = SteveState::WALK;
-            bodyYaw -= rotateSpeed * dt; // 右转
-        }
-
-        // --- 头部控制 (Q/E) ---
-        // 头部旋转是相对于身体的
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) headYaw += 100.0f * dt;
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) headYaw -= 100.0f * dt;
-        // 限制头部角度
-        if (headYaw > 60.0f) headYaw = 60.0f;
-        if (headYaw < -60.0f) headYaw = -60.0f;
-
-        // --- 交互控制 (R) ---
-        if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
-            isArmRaised = true;
-        else
-            isArmRaised = false;
+        // 3. 处理其他动作 (头部、手臂)
+        processActions(window, dt);
     }
-    // --- 动画计时 ---
-    // 只有在行走状态下，时间才流逝，从而产生摆臂动画
+
+    // 4. 更新动画计时器
+    updateAnimation(dt);
+}
+
+// --- 辅助函数实现 ---
+
+glm::vec3 Steve::processMovementInput(GLFWwindow* window, float dt) {
+    // A. 计算前向向量
+    glm::vec3 dirVector;
+    dirVector.x = -sin(glm::radians(bodyYaw));
+    dirVector.z = -cos(glm::radians(-bodyYaw));
+    dirVector.y = 0.0f;
+    front = glm::normalize(dirVector);
+
+    // B. 处理旋转 (A/D)
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        state = SteveState::WALK;
+        bodyYaw += rotateSpeed * dt;
+    }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        state = SteveState::WALK;
+        bodyYaw -= rotateSpeed * dt;
+    }
+
+    // C. 计算目标速度 (W/S)
+    glm::vec3 velocity(0.0f);
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) velocity += front;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) velocity -= front;
+
+    // 归一化并应用速度
+    if (glm::length(velocity) > 0.0f) {
+        state = SteveState::WALK;
+        return glm::normalize(velocity) * moveSpeed * dt;
+    }
+
+    return glm::vec3(0.0f);
+}
+
+void Steve::applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& obstacles) {
+    if (glm::length(velocity) < 0.0001f) return;
+
+    // Steve 的物理参数
+    float characterHeight = 1.8f;
+    float characterWidth = 0.8f;
+
+    // [关键修正] AABB 的中心 Y 坐标应该是固定的
+    // 无论模型怎么上下偏移，物理上 Steve 就是站在地面(Y=0)上的
+    // 所以中心 Y 永远是 Height / 2 = 0.9f
+    float fixedCenterY = characterHeight / 2.0f;
+
+    // --- X 轴检测 ---
+    glm::vec3 nextPosX = position;
+    nextPosX.x += velocity.x;
+
+    // [修改] 构造 AABB 时，忽略 nextPosX.y，强制使用 fixedCenterY
+    glm::vec3 centerX = nextPosX;
+    centerX.y = fixedCenterY; // 强制钉在地面上方 0.9 米处
+
+    AABB nextBoxX(centerX, glm::vec3(characterWidth, characterHeight, characterWidth));
+
+    bool collisionX = false;
+    if (nextPosX.x > 25.0f || nextPosX.x < -25.0f) collisionX = true;
+    if (!collisionX) {
+        for (const auto& box : obstacles) {
+            if (nextBoxX.checkCollision(box)) {
+                collisionX = true;
+                break;
+            }
+        }
+    }
+    if (!collisionX) position.x += velocity.x;
+
+    // --- Z 轴检测 ---
+    glm::vec3 nextPosZ = position;
+    nextPosZ.z += velocity.z;
+
+    // [修改] 同理，Z 轴检测也强制固定高度
+    glm::vec3 centerZ = nextPosZ;
+    centerZ.y = fixedCenterY;
+
+    AABB nextBoxZ(centerZ, glm::vec3(characterWidth, characterHeight, characterWidth));
+
+    bool collisionZ = false;
+    if (nextPosZ.z > 25.0f || nextPosZ.z < -25.0f) collisionZ = true;
+    if (!collisionZ) {
+        for (const auto& box : obstacles) {
+            if (nextBoxZ.checkCollision(box)) {
+                collisionZ = true;
+                break;
+            }
+        }
+    }
+    if (!collisionZ) position.z += velocity.z;
+}
+
+void Steve::processActions(GLFWwindow* window, float dt) {
+    // 头部控制 (Q/E)
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) headYaw += 100.0f * dt;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) headYaw -= 100.0f * dt;
+
+    // 限制头部角度
+    if (headYaw > 60.0f) headYaw = 60.0f;
+    if (headYaw < -60.0f) headYaw = -60.0f;
+
+    // 手臂控制 (R)
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+        isArmRaised = true;
+    else
+        isArmRaised = false;
+}
+
+void Steve::updateAnimation(float dt) {
     if (state == SteveState::WALK) {
         walkTime += dt;
     } else {
-        // 可选：如果是 IDLE，可以让四肢慢慢归位
-        // 简单做法：重置 walkTime 到 0 或者最近的由 0 点 (让它停在直立状态)
-        // 这里为了简单，如果不动，就让正弦波参数停止增加，或者重置为0会让它瞬间归位
+        // 让动画自然归位 (这里简单重置)
         walkTime = 0.0f;
     }
 }
