@@ -39,7 +39,7 @@ public:
 
     // [核心修改] update 不再接收 window，而是接收 input 结构体
     // 这样无论是 玩家控制 还是 AI控制，只需要构造这个结构体传进去即可
-    void update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles);
+    void update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles,AABB otherPlayerBox);
 
     void draw(Shader& shader);
     void drawShadow(Shader& shader);
@@ -53,6 +53,9 @@ public:
     AABB getAABB() const {
         return AABB(position + glm::vec3(0.0f, 0.9f, 0.0f), glm::vec3(0.6f, 1.8f, 0.6f));
     }
+
+    // 获取当前角色的碰撞盒
+    AABB getBoundingBox() const;
 private:
     // 使用 shared_ptr 管理模型
     std::shared_ptr<TriMesh> torso;
@@ -68,7 +71,7 @@ private:
     glm::vec3 position;     // 世界坐标位置
     glm::vec3 front;        // 面朝方向向量
 
-    float bodyYaw;          // [新增] 身体的绝对旋转角度 (0度=初始方向)
+    float bodyYaw;          //  身体的绝对旋转角度 (0度=初始方向)
     float headYaw;          // 头部相对身体的旋转角度
     bool isArmRaised;       // 举手状态
 
@@ -79,9 +82,9 @@ private:
     // --- 动画变量 ---
     float walkTime;         // 只有行走时才累加
     float swingRange;       // 摆动幅度
-    float swingTime;        // [新增] 挥剑动画时间
+    float swingTime;        //  挥剑动画时间
 
-    // [新增] 物理属性
+    //  物理属性
     float verticalVelocity; // 当前垂直速度
     float gravity;          // 重力加速度 (建议 20.0f ~ 30.0f，游戏里通常比现实大)
     float jumpForce;        // 跳跃瞬间的向上速度 (建议 8.0f ~ 12.0f)
@@ -97,11 +100,15 @@ private:
                      glm::vec3 rotateAxis);
 
 
-    // [修改] 内部处理函数也只需接收 input
+    // 内部处理函数也只需接收 input
     glm::vec3 processMovement(const SteveInput& input, float dt);
-    void applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& obstacles);
+    void applyCollisionAndMove(glm::vec3 velocity,
+                               const std::vector<AABB>& obstacles,
+                               AABB otherPlayerBox);
     void processActions(const SteveInput& input, float dt);
     void updateAnimation(float dt);
+
+
 };
 
 #endif

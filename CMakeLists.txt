@@ -15,16 +15,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(glfw3 CONFIG REQUIRED)      # 使用 CONFIG 模式查找 vcpkg 提供的配置文件
 find_package(glm CONFIG REQUIRED)        # 同上
 find_package(OpenGL REQUIRED)            # OpenGL 通常仍然由系统提供
-find_package(assimp CONFIG REQUIRED)
+#find_package(assimp CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 #find_package(stb CONFIG REQUIRED)
+find_package(tinyobjloader CONFIG REQUIRED)
 # ==========================================
 # 2. 源代码管理 & 生成可执行文件
 # ==========================================
 
 # [修改] 定义资源文件变量
 if(WIN32)
-	set(app_icon_resource "${CMAKE_CURRENT_SOURCE_DIR}/steve.rc")
+	set(app_icon_resource "${CMAKE_CURRENT_SOURCE_DIR}/assets/steve.rc")
 else()
 	set(app_icon_resource "")
 endif()
@@ -62,9 +63,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 		glfw
 		glm::glm
 		OpenGL::GL
-		assimp::assimp
+#		assimp::assimp
 		imgui::imgui
 #		stb::stb
+		tinyobjloader::tinyobjloader
 		${CMAKE_DL_LIBS} # Linux 下需要的动态加载库
 )
 

@@ -8,6 +8,9 @@
 #include <stb_image.h>
 #endif
 
+#include <tiny_obj_loader.h>
+#define TINYOBJLOADER_IMPLEMENTATION
+
 TriMesh::TriMesh() : vao(0), vbo(0), shininess(32.0f) {}
 
 TriMesh::~TriMesh() {
@@ -18,115 +21,144 @@ TriMesh::~TriMesh() {
 // ==========================================================
 // 核心函数：自适应读取 (融合贴图模型与纯色模型)
 // ==========================================================
-void TriMesh::readObjAssimp(const std::string &filename)
+void TriMesh::readObjTiny(const std::string &filename)
 {
-    Assimp::Importer importer;
-    // 使用 CalcTangentSpace 以备未来扩展，Triangulate 是必须的
-    const aiScene *scene = importer.ReadFile(filename,
-                                             aiProcess_Triangulate |
-                                             aiProcess_FlipUVs |
-                                             aiProcess_CalcTangentSpace);
-
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-    {
-        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
-        return;
-    }
+    std::cout << "[TinyObj] Loading: " << filename << std::endl;
 
     cleanData();
     std::string directory = filename.substr(0, filename.find_last_of('/'));
 
-    // 初始化边界为极大/极小值
-    minBound = glm::vec3(1e9f); // 正无穷
-    maxBound = glm::vec3(-1e9f); // 负无穷
+    // 1. 初始化 Loader
+    tinyobj::ObjReaderConfig reader_config;
+    reader_config.mtl_search_path = directory; // 告诉它去哪里找 .mtl 文件
 
-    // 记录合并 Mesh 时的索引偏移量
-    unsigned int baseIndex = 0;
-
-    // 1. 遍历所有子 Mesh (处理钻石剑那种多部件的情况)
-    for (unsigned int m = 0; m < scene->mNumMeshes; m++)
-    {
-        aiMesh *mesh = scene->mMeshes[m];
-        aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
-
-        // --- 策略：获取材质颜色 ---
-        // 如果 obj 里没有贴图，通常会用 Kd 定义颜色
-        aiColor3D color(1.f, 1.f, 1.f);
-        material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
-
-        // 遍历顶点
-        for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-        {
-            // 位置
-            glm::vec3 pos(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
-            vertex_positions.push_back(pos);
-
-            // 更新边界
-            minBound.x = std::min(minBound.x, pos.x);
-            minBound.y = std::min(minBound.y, pos.y);
-            minBound.z = std::min(minBound.z, pos.z);
-
-            maxBound.x = std::max(maxBound.x, pos.x);
-            maxBound.y = std::max(maxBound.y, pos.y);
-            maxBound.z = std::max(maxBound.z, pos.z);
-
-            // 法线 (防崩处理)
-            if (mesh->HasNormals())
-                vertex_normals.emplace_back(glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z));
-            else
-                vertex_normals.emplace_back(glm::vec3(0.0f, 1.0f, 0.0f));
-
-            // UV
-            if (mesh->mTextureCoords[0])
-                vertex_texcoords.emplace_back(glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
-            else
-                vertex_texcoords.emplace_back(glm::vec2(0.0f, 0.0f));
-
-            // 颜色 (将材质 Kd 烘焙进顶点颜色)
-            // 钻石剑：color 是蓝色/棕色...
-            // Steve：color 通常是白色 (默认)
-            vertex_colors.emplace_back(glm::vec3(color.r, color.g, color.b));
+    tinyobj::ObjReader reader;
+    if (!reader.ParseFromFile(filename, reader_config)) {
+        if (!reader.Error().empty()) {
+            std::cerr << "TinyObj Reader Error: " << reader.Error() << std::endl;
         }
-
-        // 遍历面 (索引需要加上 baseIndex)
-        for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-        {
-            aiFace face = mesh->mFaces[i];
-            faces.emplace_back(
-                face.mIndices[0] + baseIndex,
-                face.mIndices[1] + baseIndex,
-                face.mIndices[2] + baseIndex
-            );
-        }
-
-        // 更新偏移量
-        baseIndex += mesh->mNumVertices;
-
-        // 加载贴图 (如果有的话)
-        auto loadMaps = [&](aiTextureType type, const std::string& typeName) {
-            for (unsigned int i = 0; i < material->GetTextureCount(type); i++) {
-                aiString str;
-                material->GetTexture(type, i, &str);
-
-                // 简单去重
-                bool skip = false;
-                for(const auto& t : textures) if(t.path == str.C_Str()) skip = true;
-
-                if(!skip) {
-                    Texture tex;
-                    tex.id = loadTexture(str.C_Str(), directory);
-                    tex.type = typeName;
-                    tex.path = str.C_Str();
-                    textures.push_back(tex);
-                }
-            }
-        };
-        loadMaps(aiTextureType_DIFFUSE, "texture_diffuse");
-        loadMaps(aiTextureType_SPECULAR, "texture_specular");
+        return;
     }
 
-    // 2. 兜底策略：如果没有 Diffuse 贴图，生成一张 1x1 的白色贴图
-    // 这样 Shader 里的 texture() * vertexColor 才能正确显示 vertexColor
+    if (!reader.Warning().empty()) {
+        std::cout << "TinyObj Reader Warning: " << reader.Warning() << std::endl;
+    }
+
+    auto& attrib = reader.GetAttrib();
+    auto& shapes = reader.GetShapes();
+    auto& materials = reader.GetMaterials();
+
+    // 初始化边界
+    minBound = glm::vec3(1e9f);
+    maxBound = glm::vec3(-1e9f);
+
+    // 2. 预加载所有材质贴图 (模仿 Assimp 逻辑)
+    // TinyObj 的材质列表是全局的，我们可以先遍历一遍加载贴图
+    for (const auto& mat : materials) {
+        // 辅助 lambda: 加载并去重
+        auto loadMap = [&](std::string texPath, std::string typeName) {
+            if (texPath.empty()) return;
+
+            // 检查去重
+            for(const auto& t : textures) if(t.path == texPath) return;
+
+            Texture tex;
+            tex.id = loadTexture(texPath, directory); // 复用你现有的 loadTexture
+            tex.type = typeName;
+            tex.path = texPath;
+            textures.push_back(tex);
+        };
+
+        loadMap(mat.diffuse_texname, "texture_diffuse");
+        loadMap(mat.specular_texname, "texture_specular");
+        // 如果 .mtl 里有 bump 贴图，也可以加载：
+        // loadMap(mat.bump_texname, "texture_normal");
+    }
+
+    // 3. 遍历几何体
+    // TinyObj 的数据是展平的数组，通过 index 访问
+    unsigned int baseIndex = 0; // 用于 faces 的索引偏移
+
+    for (const auto& shape : shapes) {
+        // 遍历所有面
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shape.mesh.num_face_vertices.size(); f++) {
+            // 获取当前面的顶点数 (通常是 3，因为 tinyobj 默认 triangulate)
+            int fv = shape.mesh.num_face_vertices[f];
+
+            // 获取材质 ID
+            int matId = shape.mesh.material_ids[f];
+            glm::vec3 diffuseColor(1.0f);
+            if (matId >= 0 && matId < materials.size()) {
+                diffuseColor = glm::vec3(
+                    materials[matId].diffuse[0],
+                    materials[matId].diffuse[1],
+                    materials[matId].diffuse[2]
+                );
+            }
+
+            // 遍历面的每个顶点
+            for (size_t v = 0; v < fv; v++) {
+                // 获取索引
+                tinyobj::index_t idx = shape.mesh.indices[index_offset + v];
+
+                // --- 位置 (Position) ---
+                glm::vec3 pos(
+                    attrib.vertices[3 * idx.vertex_index + 0],
+                    attrib.vertices[3 * idx.vertex_index + 1],
+                    attrib.vertices[3 * idx.vertex_index + 2]
+                );
+                vertex_positions.push_back(pos);
+
+                // 更新 AABB
+                minBound = glm::min(minBound, pos);
+                maxBound = glm::max(maxBound, pos);
+
+                // --- 法线 (Normal) ---
+                if (idx.normal_index >= 0) {
+                    vertex_normals.emplace_back(glm::vec3(
+                        attrib.normals[3 * idx.normal_index + 0],
+                        attrib.normals[3 * idx.normal_index + 1],
+                        attrib.normals[3 * idx.normal_index + 2]
+                    ));
+                } else {
+                    vertex_normals.emplace_back(glm::vec3(0.0f, 1.0f, 0.0f));
+                }
+
+                // --- 纹理坐标 (UV) ---
+                if (idx.texcoord_index >= 0) {
+                    vertex_texcoords.emplace_back(glm::vec2(
+                        attrib.texcoords[2 * idx.texcoord_index + 0],
+                        1.0f - attrib.texcoords[2 * idx.texcoord_index + 1] // [关键] 手动 Flip Y
+                    ));
+                } else {
+                    vertex_texcoords.emplace_back(glm::vec2(0.0f, 0.0f));
+                }
+
+                // --- 颜色 (Color) ---
+                vertex_colors.push_back(diffuseColor);
+
+                // --- 切线 (Tangent) ---
+                // TinyObj 不会自动计算切线。
+                // 如果你之前放弃了 Normal Map，这里给个默认值即可
+                // 如果以后需要，得手动写算法计算 (MikkTSpace)
+                // vertex_tangents.emplace_back(glm::vec3(1.0f, 0.0f, 0.0f));
+            }
+
+            // --- 构建面索引 (Faces) ---
+            // 因为我们是把所有顶点按顺序 push 进去的 (Flatten)，所以索引就是线性的
+            faces.emplace_back(
+                baseIndex + 0,
+                baseIndex + 1,
+                baseIndex + 2
+            );
+
+            baseIndex += 3;
+            index_offset += fv;
+        }
+    }
+
+    // 4. 兜底策略：白图 (完全复用之前的逻辑)
     bool hasDiffuse = false;
     for(const auto& t : textures) {
         if(t.type == "texture_diffuse") hasDiffuse = true;
@@ -134,26 +166,20 @@ void TriMesh::readObjAssimp(const std::string &filename)
 
     if (!hasDiffuse) {
         Texture whiteTex;
-        whiteTex.id = loadTexture("internal_white", ""); // 特殊标记
+        whiteTex.id = loadTexture("internal_white", "");
         whiteTex.type = "texture_diffuse";
         whiteTex.path = "internal_white";
         textures.push_back(whiteTex);
     }
 
-    std::cout << "Loaded Model: " << filename << " | Meshes: " << scene->mNumMeshes
+    std::cout << "Loaded Model: " << filename << " | Shapes: " << shapes.size()
               << " | Textures: " << textures.size() << std::endl;
 
-    // 打印调试信息：边界盒 (AABB)
-    std::cout << "  [DEBUG] Bounds for " << filename << ":" << std::endl;
-    std::cout << "    Min: (" << minBound.x << ", " << minBound.y << ", " << minBound.z << ")" << std::endl;
-    std::cout << "    Max: (" << maxBound.x << ", " << maxBound.y << ", " << maxBound.z << ")" << std::endl;
-    std::cout << "    Size: (" << maxBound.x - minBound.x << ", "
-                               << maxBound.y - minBound.y << ", "
-                               << maxBound.z - minBound.z << ")" << std::endl;
+    // AABB Debug Log 保持不变...
 
+    // 提交 GPU
     storeFacesPoints();
 }
-
 // ==========================================================
 // 展平数据传给 GPU (适配 Layout 0,1,2,3)
 // ==========================================================

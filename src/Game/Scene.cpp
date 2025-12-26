@@ -48,7 +48,11 @@ void Scene::loadMap(const std::shared_ptr<LightManager>& lightManager) {
         modelPos.y = 0.0f;
         addStaticObject("assets/models/street_lamp/model.obj", modelPos, 2.5f, 0.5f);
     }
-    if (lightManager->isNightMode()) lightManager->setNight();
+    if (lightManager->isNightMode()) {
+        lightManager->setNight();
+    } else {
+        lightManager->setDay();
+    }
 
     // ==========================================
     // 2. 环境造景
@@ -63,7 +67,8 @@ void Scene::loadMap(const std::shared_ptr<LightManager>& lightManager) {
     // 右后方的巨型灌木墙 (Scale 15.0!)
     addStaticObject("assets/models/bush/model.obj", glm::vec3(6.0f, 0.0f, 14.0f), 15.0f, 2.0f);
     addStaticObject("assets/models/bush/model.obj", glm::vec3(1.0f, 0.0f, 15.0f), 12.0f, 2.0f);
-
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(9.0f, 0.0f, 18.0f), 14.0f, 2.0f);
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(15.0f, 0.0f, 12.0f), 12.0f, 2.0f);
     // 2. "侧翼掩护"：左边的一棵树，增加包围感
     addStaticObject("assets/models/another_tree/model.obj", glm::vec3(-9.0f, 0.0f, 10.0f), 4.5f, 0.6f);
     // 树下的灌木 (Scale 10.0)
@@ -121,7 +126,7 @@ void Scene::loadMap(const std::shared_ptr<LightManager>& lightManager) {
 
 
     // [Center] 足球
-    addStaticObject("assets/models/soccer_ball/model.obj", glm::vec3(0.0f, 0.0f, 2.0f), 0.5f, 0.3f);
+    addStaticObject("assets/models/soccer_ball/model.obj", glm::vec3(0.0f, 0.0f, 2.0f), 0.000001f, 0.5f);
 
     std::cout << "Map Loaded: " << renderQueue.size() << " objects." << std::endl;
 }
@@ -163,24 +168,23 @@ void Scene::addStaticObject(const std::string& path, glm::vec3 pos, float scale,
     }
 }
 
-// 正常渲染 Pass
-void Scene::draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, const LightManager* lights) {
+void Scene::draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, LightManager* lights) {
     // 1. 绘制地面
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::scale(model, glm::vec3(5.0f));
-    // [修改] 只传 ID 和 Model，不再传 View/Proj
+    // 只传 ID 和 Model，不再传 View/Proj
     ground->draw(shader.ID, model);
 
     // 2. 绘制天体 (太阳/月亮)
     if (lights) {
-        // [修改] 内部实现也去掉了 View/Proj 的传递
+        // 内部实现也去掉了 View/Proj 的传递
         drawCelestialBody(sunMesh, shader, lights, true);
         drawCelestialBody(moonMesh, shader, lights, false);
     }
 
     // 3. 绘制所有静态物体
     for (const auto& obj : renderQueue) {
-        // [修改] 只传 ID 和 Model
+        // 只传 ID 和 Model
         obj.mesh->draw(shader.ID, obj.modelMatrix);
     }
 
@@ -191,7 +195,7 @@ void Scene::draw(Shader& shader, const glm::mat4& view, const glm::mat4& project
     }
 }
 
-// [新增] 阴影生成 Pass
+// 阴影生成
 void Scene::drawShadow(Shader& shader) {
     // 1. 地面投射阴影
     glm::mat4 model = glm::mat4(1.0f);
@@ -206,54 +210,34 @@ void Scene::drawShadow(Shader& shader) {
     // 注意：天体和天空盒不需要投射阴影，这里跳过
 }
 
-// [修改] 辅助函数：天体绘制
-// 移除了 view 和 projection 参数，因为不需要传给 mesh->draw 了
 void Scene::drawCelestialBody(std::shared_ptr<TriMesh> mesh, Shader& shader,
-                              const LightManager* lights, bool isSun)
+                              LightManager* lights, bool isSun)
 {
-    bool isNight = lights->isNightMode();
-    if (isSun && isNight) return;
-    if (!isSun && !isNight) return;
+    // 1. 获取配置 (完全解耦！Scene 不再关心现在是白天还是晚上)
+    const CelestialConfig& config = isSun ? lights->getSunConfig() : lights->getMoonConfig();
 
-    glm::vec3 celestialDir = lights->getSunDirection();
-    // 稍微放远一点，保证在天空盒范围内
-    glm::vec3 pos = -celestialDir * 40.0f;
+    // 2. 如果不可见，直接跳过
+    if (!config.visible) return;
+
+    // 3. 计算模型矩阵
+    glm::vec3 pos = -config.direction * config.distance;
 
     glm::mat4 model = glm::mat4(1.0f);
     model = glm::translate(model, pos);
 
-    // 自转动画
+    // 自转动画 (保留一点动态效果)
     float time = (float)glfwGetTime();
     model = glm::rotate(model, time * 0.1f, glm::vec3(0.0f, 1.0f, 0.0f));
-    // 1. 调整大小和位置
-    if (!isSun) { // 月亮
-        // [修改] 之前是 0.1f，如果还大，就继续缩小，比如 0.02f
-        // 这取决于你的 moon.obj 原始大小，请根据视觉效果微调
-        model = glm::scale(model, glm::vec3(0.06f));
-        pos.y *= 0.4f;
 
-        // [修改] 月亮亮度：稍微柔和一点，不要纯白 (1.0 -> 0.7)
-        shader.setVec3("dirLight.ambient", glm::vec3(0.9f));
-        shader.setVec3("dirLight.diffuse", glm::vec3(0.3f)); // 关闭漫反射，只用环境光显示纹理
+    model = glm::scale(model, glm::vec3(config.scale));
 
-    } else { // 太阳
-        model = glm::scale(model, glm::vec3(3.0f));
+    // 4. 应用发光参数 (从 config 读取，不再硬编码 0.8/0.9)
+    shader.setVec3("dirLight.ambient", config.emissionAmbient);
+    shader.setVec3("dirLight.diffuse", config.emissionDiffuse);
 
-        // [新增] 让太阳“发光”的关键
-        // 我们把环境光设为 > 1.0 的值（过曝），这样它看起来就是耀眼的白色/黄色
-        shader.setVec3("dirLight.ambient", glm::vec3(0.8f));
-        shader.setVec3("dirLight.diffuse", glm::vec3(0.0f)); // 太阳不受光照方向影响
-    }
-
+    // 5. 绘制
     mesh->draw(shader.ID, model);
 
-    // [关键] 恢复默认的光照参数，否则绘制完天体后，下一个物体的光照会乱掉
-    // 恢复为当前时间段（白天/晚上）的参数
-    // 这里我们简单粗暴地重置为一个很小的值，或者让 LightManager::apply 在下一帧重新覆盖
-    // 但为了安全，最好重置一下：
-    if(lights->isNightMode()) {
-        shader.setVec3("dirLight.ambient", glm::vec3(0.05f)); // 恢复夜晚环境光
-    } else {
-        shader.setVec3("dirLight.ambient", glm::vec3(0.35f)); // 恢复白天环境光(与setDay一致)
-    }
+    // 6. 恢复现场 (依然调用 apply 重置为全局光照)
+    lights->apply(shader);
 }

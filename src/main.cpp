@@ -40,27 +40,27 @@ int main()
     glfwMakeContextCurrent(window);
 
     // ====================================================
-    // [新增] 设置窗口图标
+    // 设置窗口图标
     // ====================================================
     {
-        GLFWimage images[1];
+        GLFWimage images[2]; // 准备两个槽位
         int channels;
-        // 强制加载为 4 通道 (RGBA)，因为图标通常需要透明度
-        // 请确保路径正确，比如放在 assets/icon.png
-        images[0].pixels = stbi_load("assets/icon.png", &images[0].width, &images[0].height, &channels, 4);
 
-        if (images[0].pixels) {
-            // 设置图标
-            glfwSetWindowIcon(window, 1, images);
-            // 释放内存
-            stbi_image_free(images[0].pixels);
-        } else {
-            std::cout << "Warning: Failed to load window icon." << std::endl;
+        // 加载一张大图 (48x48 或 64x64) 用于 Alt-Tab 和大图标
+        images[0].pixels = stbi_load("assets/icon_large.png", &images[0].width, &images[0].height, &channels, 4);
+        // 加载一张小图 (16x16 或 32x32) 专门供任务栏和标题栏使用
+        images[1].pixels = stbi_load("assets/icon_small.png", &images[1].width, &images[1].height, &channels, 4);
+
+        if (images[0].pixels && images[1].pixels) {
+            glfwSetWindowIcon(window, 2, images); // 数量改为 2
         }
+
+        if (images[0].pixels) stbi_image_free(images[0].pixels);
+        if (images[1].pixels) stbi_image_free(images[1].pixels);
     }
     // ====================================================
 
-    // [新增] 开启垂直同步 (V-Sync)
+    // 开启垂直同步 (V-Sync)
     // 0 = 不限制 (400 FPS+)
     // 1 = 锁定为屏幕刷新率 (通常 60 FPS)
     // 2 = 锁定为刷新率的一半 (30 FPS)

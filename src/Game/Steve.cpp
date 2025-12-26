@@ -16,7 +16,7 @@ Steve::Steve()
       walkTime(0.0f),
       swingTime(0.0f),
       swingRange(45.0f),
-      // [新增] 物理参数初始化
+      // 物理参数初始化
       verticalVelocity(0.0f),
       // 游戏里的重力通常要比现实(9.8)大，才有打击感，否则会像在月球
       gravity(31.0f),
@@ -30,7 +30,7 @@ void Steve::init(const std::string& characterName) {
     std::cout << "Initializing Character: " << characterName << "..." << std::endl;
 
     std::string basePath = "assets/models/" + characterName + "/";
-    // [修改] 使用 ResourceManager 获取资源
+    // 使用 ResourceManager 获取资源
     // 即使你创建 10 个 Steve，它们现在共享同一份内存中的 Vertex Data
     torso    = ResourceManager::getInstance().getMesh(basePath + "body.obj");
     head     = ResourceManager::getInstance().getMesh(basePath + "head.obj");
@@ -41,8 +41,18 @@ void Steve::init(const std::string& characterName) {
 
     sword    = ResourceManager::getInstance().getMesh("assets/models/diamond_sword/model.obj");
 }
+
+AABB Steve::getBoundingBox() const {
+    // 保持和 applyCollisionAndMove 里的大小一致
+    float w = 0.6f;
+    float h = 1.8f;
+    return AABB(position, glm::vec3(w, h, w));
+}
+
 // [核心修改] Update
-void Steve::update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles) {
+void Steve::update(float dt, const SteveInput& input,
+                   const std::vector<AABB>& obstacles,
+                   AABB otherPlayerBox) {
     state = SteveState::IDLE;
 
     // 1. 处理移动 (基于 Input)
@@ -55,7 +65,7 @@ void Steve::update(float dt, const SteveInput& input, const std::vector<AABB>& o
     }
 
     // 3. 应用水平物理
-    applyCollisionAndMove(velocity, obstacles);
+    applyCollisionAndMove(velocity, obstacles, otherPlayerBox);
 
     // 4. 处理其他动作
     processActions(input, dt);
@@ -77,7 +87,7 @@ void Steve::update(float dt, const SteveInput& input, const std::vector<AABB>& o
 }
 // --- 辅助函数实现 ---
 
-// [修改] 这里的逻辑不再调用 glfwGetKey，而是读取 input 结构体
+// 这里的逻辑不再调用 glfwGetKey，而是读取 input 结构体
 glm::vec3 Steve::processMovement(const SteveInput& input, float dt) {
     // A. 计算当前的前向向量
     glm::vec3 dirVector;
@@ -111,53 +121,62 @@ glm::vec3 Steve::processMovement(const SteveInput& input, float dt) {
     return glm::vec3(0.0f);
 }
 
-void Steve::applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& obstacles) {
+// [核心修改] 碰撞检测逻辑
+void Steve::applyCollisionAndMove(glm::vec3 velocity,
+                                  const std::vector<AABB>& obstacles,
+                                  AABB otherPlayerBox)
+{
     if (glm::length(velocity) < 0.0001f) return;
 
-    // Steve 的物理尺寸
     float characterHeight = 1.8f;
-    float characterWidth = 0.6f; // 稍微改瘦一点，手感好
-
-    // [修改] 现在的中心 Y 不再是固定的，而是跟随当前 position.y
-    // position 是脚底(或者模型原点)，AABB 中心通常在半高处
-    // 假设 position.y 是模型原点 (在腰部或脚底)，根据构造函数 1.141f 来看，
-    // 原点似乎就是模型的几何中心附近？
-    // 如果 position.y 代表“在空中的位置”，那碰撞盒中心就是 position.y + (如果原点在脚底则 +height/2)
-
-    // 既然之前的 groundLevel 是 1.141，说明 position 就是中心点。
-    // 所以直接用 position 作为碰撞盒中心即可。
+    float characterWidth = 0.6f;
     glm::vec3 currentCenter = position;
 
-    // --- X 轴检测 ---
+    // ================= X 轴检测 =================
     glm::vec3 nextPosX = currentCenter;
     nextPosX.x += velocity.x;
-
     AABB nextBoxX(nextPosX, glm::vec3(characterWidth, characterHeight, characterWidth));
 
     bool collisionX = false;
-    // 简单的地图边界
     if (nextPosX.x > 25.0f || nextPosX.x < -25.0f) collisionX = true;
+
+    // 1. 检查地图静态障碍物
     if (!collisionX) {
         for (const auto& box : obstacles) {
-            // [优化] 如果我们跳得比障碍物还高，就不应该算碰撞！
-            // 简单的 AABB 检测 `checkCollision` 已经包含了 Y 轴判断
-            // 所以只要 nextBoxX 的 Y 跟着跳起来了，checkCollision 就会返回 false (如果障碍物很矮)
             if (nextBoxX.checkCollision(box)) {
                 collisionX = true;
                 break;
             }
         }
     }
+
+    // 2. 检查另一个玩家
+    if (!collisionX) {
+        // 只有当另一个玩家碰撞盒有效(非空)时才检查
+        // 简单判断：如果两个人都站在原点重叠，或者正常移动
+        if (nextBoxX.checkCollision(otherPlayerBox)) {
+            collisionX = true;
+        }
+    }
+
     if (!collisionX) position.x += velocity.x;
 
-    // --- Z 轴检测 ---
-    glm::vec3 nextPosZ = currentCenter; // 注意：用 currentCenter (包含最新的 Y)
-    nextPosZ.z += velocity.z;
 
-    AABB nextBoxZ(nextPosZ, glm::vec3(characterWidth, characterHeight, characterWidth));
+    // ================= Z 轴检测 =================
+    glm::vec3 nextPosZ = currentCenter; // 注意：这里用 currentCenter 还是 position 都可以，因为上面已经更新过 position.x 了
+    // 但为了标准的 AABB 扫掠，通常建议分开算。
+    // 这里因为你上面直接修改了 position.x，所以用 position 即可，或者重新构造一个包含新X旧Z的向量。
+    // 你的原代码用的是 currentCenter (旧X)，这会导致斜向移动卡墙角。
+    // 更好的做法是：
+    glm::vec3 posWithNewX = position; // 此时 position.x 已经可能更新了
+    posWithNewX.z += velocity.z;
+
+    AABB nextBoxZ(posWithNewX, glm::vec3(characterWidth, characterHeight, characterWidth));
 
     bool collisionZ = false;
-    if (nextPosZ.z > 25.0f || nextPosZ.z < -25.0f) collisionZ = true;
+    if (posWithNewX.z > 25.0f || posWithNewX.z < -25.0f) collisionZ = true;
+
+    // 1. 检查地图静态障碍物
     if (!collisionZ) {
         for (const auto& box : obstacles) {
             if (nextBoxZ.checkCollision(box)) {
@@ -166,6 +185,14 @@ void Steve::applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& o
             }
         }
     }
+
+    // 2. 检查另一个玩家
+    if (!collisionZ) {
+        if (nextBoxZ.checkCollision(otherPlayerBox)) {
+            collisionZ = true;
+        }
+    }
+
     if (!collisionZ) position.z += velocity.z;
 }
 
@@ -237,14 +264,14 @@ void Steve::draw(Shader& shader) {
     glm::vec3 standardAxis  = glm::vec3(1.0f, 0.0f, 0.0f);
 
     // [Level 1] 躯干
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     torso->draw(shader.ID, model);
 
     // [Level 2] 头部
     glm::mat4 headModel = model;
     headModel = glm::translate(headModel, glm::vec3(0.0f, 0.37f, 0.0f));
     headModel = glm::rotate(headModel, glm::radians(headYaw), glm::vec3(0.0f, 1.0f, 0.0f));
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     head->draw(shader.ID, headModel);
 
     // [Level 2] 右大臂
@@ -253,7 +280,7 @@ void Steve::draw(Shader& shader) {
     rightUpperModel = glm::rotate(rightUpperModel, glm::radians(rightArmTargetAngle), armRotateAxis);
 
     glm::mat4 upperDrawModel = glm::scale(rightUpperModel, glm::vec3(1.0f, 0.5f, 1.0f));
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     rightArm->draw(shader.ID, upperDrawModel);
 
     // [Level 3] 右小臂
@@ -266,7 +293,7 @@ void Steve::draw(Shader& shader) {
     rightLowerModel = glm::rotate(rightLowerModel, glm::radians(elbowBend), armRotateAxis);
 
     glm::mat4 lowerDrawModel = glm::scale(rightLowerModel, glm::vec3(1.0f, 0.5f, 1.0f));
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     rightArm->draw(shader.ID, lowerDrawModel);
 
     // [Level 4] 钻石剑
@@ -277,17 +304,17 @@ void Steve::draw(Shader& shader) {
     if (isArmRaised) swordModel = glm::rotate(swordModel, glm::radians(45.0f), armRotateAxis);
     swordModel = glm::translate(swordModel, glm::vec3(0.0f, 0.35f, 0.0f));
     swordModel = glm::scale(swordModel, glm::vec3(1.5f));
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     sword->draw(shader.ID, swordModel);
 
     // 其他肢体
-    // [修改] drawLimb 内部实现也需要改，去掉 view/proj
+    // drawLimb 内部实现也需要改，去掉 view/proj
     drawLimb(leftArm, shader, model, glm::vec3(-0.375f, 0.375f, 0.0f), swingAngle, standardAxis);
     drawLimb(leftLeg, shader, model, glm::vec3(-0.125f, -0.375f, 0.0f), -swingAngle, standardAxis);
     drawLimb(rightLeg, shader, model, glm::vec3(0.125f, -0.375f, 0.0f), swingAngle, standardAxis);
 }
 
-// [新增] 阴影生成 Pass
+// 阴影生成 Pass
 // 逻辑与 draw 完全一致，只是调用 drawGeometry
 void Steve::drawShadow(Shader& shader) {
     // 必须重复计算一遍矩阵，因为阴影 Pass 里的 Steve 也要动！
@@ -351,7 +378,7 @@ void Steve::drawShadow(Shader& shader) {
 }
 
 // 辅助函数实现
-// [修改] 辅助函数 drawLimb (移除 view, proj)
+// 辅助函数 drawLimb (移除 view, proj)
 void Steve::drawLimb(const std::shared_ptr<TriMesh>& mesh, Shader& shader,
                      glm::mat4 parentModel, glm::vec3 offset, float angle,
                      glm::vec3 rotateAxis)
@@ -359,6 +386,6 @@ void Steve::drawLimb(const std::shared_ptr<TriMesh>& mesh, Shader& shader,
     glm::mat4 limbModel = parentModel;
     limbModel = glm::translate(limbModel, offset);
     limbModel = glm::rotate(limbModel, glm::radians(angle), rotateAxis);
-    // [修改] 只传 ID 和 Model
+    // 只传 ID 和 Model
     mesh->draw(shader.ID, limbModel);
 }

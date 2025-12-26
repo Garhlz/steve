@@ -4,7 +4,7 @@
 #include <iostream>
 
 Game::Game(unsigned int width, unsigned int height)
-    : State(GAME_MENU), Width(width), Height(height), pressB(false), window(nullptr)
+    : State(GAME_MENU), Width(width), Height(height), pressB(false), pressT(false), window(nullptr)
 {
 }
 
@@ -28,7 +28,7 @@ void Game::Init() {
     // Camera 保持在后面
     camera = std::make_shared<Camera>(glm::vec3(0.0f, 3.0f, 18.0f)); // 稍微抬高一点视角，看得更清楚
 
-    camera->MovementSpeed = 8.0f;
+    camera->MovementSpeed = 7.0f;
 
     // 4. Steve & Alex 出生点
     // 让他们站在“空地”的边缘，面对足球
@@ -46,7 +46,7 @@ void Game::Init() {
     scene = std::make_shared<Scene>();
     scene->init();
 
-    // [新增] 6. 加载地图 (生成物体和碰撞盒)
+    // 6. 加载地图 (生成物体和碰撞盒)
     // 以后这里可以改成 scene->loadMap("level1.txt");
     scene->loadMap(lightManager);
 
@@ -57,7 +57,7 @@ void Game::Init() {
     uiManager = std::make_unique<UIManager>();
     uiManager->Init(window);
 
-    // [修改] 9. 获取碰撞数据
+    // 9. 获取碰撞数据
     // Game 不再自己算碰撞盒，直接问 Scene 要
     staticObstacles = scene->getObstacles();
 
@@ -90,7 +90,7 @@ void Game::ProcessInput(float dt) {
     }
 
     if (State == GAME_ACTIVE) {
-        // [新增] 角色切换 (按 T 键)
+        // 角色切换 (按 T 键)
         if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
             if (!pressT) {
                 // 切换指针
@@ -107,7 +107,7 @@ void Game::ProcessInput(float dt) {
             pressT = false;
         }
 
-        // [新增] F 键切换跟随模式
+        // F 键切换跟随模式
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
             if (!pressF) {
                 isFollowing = !isFollowing; // 切换开关
@@ -153,26 +153,39 @@ void Game::Update(float dt) {
         }
 
         // 2. 更新所有角色
-        // -> 当前角色接收玩家输入
-        currentCharacter->update(dt, playerInput, staticObstacles);
 
-        // 空输入 (Idle)
-        SteveInput idleInput; // 默认全为 false/0
+        // 获取两个角色的碰撞盒
+        AABB steveBox = steve->getBoundingBox();
+        AABB alexBox = alex->getBoundingBox();
 
-        // B. 另一个角色 -> 听 AI 的 (如果有跟随模式)
-        SteveInput aiInput; // 默认为空
+        // -------------------------------------------------
+        // 更新当前操控的角色
+        // -------------------------------------------------
+        // 如果当前是 steve，就把 alexBox 传给它作为障碍
+        // 如果当前是 alex，就把 steveBox 传给它
+        AABB currentObstaclePlayer = (currentCharacter == steve) ? alexBox : steveBox;
 
+        currentCharacter->update(dt, playerInput, staticObstacles, currentObstaclePlayer);
+
+
+        // -------------------------------------------------
+        // 更新另一个角色 (AI / Idle)
+        // -------------------------------------------------
+        SteveInput idleInput;
+        SteveInput aiInput;
         std::shared_ptr<Steve> otherCharacter = (currentCharacter == steve) ? alex : steve;
 
+        // 另一个角色的障碍物，就是“我现在操控的角色”
+        // 注意：这里用 getBoundingBox() 重新获取一下，因为 currentCharacter 刚刚可能移动了位置
+        AABB otherObstaclePlayer = currentCharacter->getBoundingBox();
+
         if (isFollowing) {
-            // 计算 AI 输入：让 other 追逐 current
             aiInput = calculateFollowInput(otherCharacter, currentCharacter);
         } else {
             aiInput = idleInput;
         }
 
-        // 更新另一个角色
-        otherCharacter->update(dt, aiInput, staticObstacles);
+        otherCharacter->update(dt, aiInput, staticObstacles, otherObstaclePlayer);
 
         // 3. 更新相机
         camController->update(dt);
@@ -184,7 +197,7 @@ void Game::Render() {
     // Pass 1: Shadow Map Generation (阴影生成阶段)
     // =========================================================
 
-    // [修改] 获取 Steve 的位置作为阴影中心
+    // 获取 Steve 的位置作为阴影中心
     glm::vec3 centerPos = currentCharacter->getPosition();
 
     // 计算跟随玩家的光照矩阵

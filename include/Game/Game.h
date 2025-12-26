@@ -26,7 +26,7 @@ enum GameState {
 class Game {
 public:
     GameState State;
-    bool Keys[1024];
+    bool Keys[1024]{};
     unsigned int Width, Height;
 
     Game(unsigned int width, unsigned int height);
@@ -52,14 +52,13 @@ private:
     std::shared_ptr<Shader> lightingShader;
     std::shared_ptr<Camera> camera;
     std::shared_ptr<Steve> steve;
-    std::shared_ptr<Steve> alex;  // 新角色 (minecraft_girl)
+    std::shared_ptr<Steve> alex;
     std::shared_ptr<Steve> currentCharacter;
 
     std::shared_ptr<Scene> scene;
     std::shared_ptr<LightManager> lightManager;
     std::shared_ptr<CameraController> camController;
 
-    // [新增] GUI 管理器
     std::unique_ptr<UIManager> uiManager;
 
     std::shared_ptr<Shader> depthShader;
@@ -70,7 +69,6 @@ private:
     bool pressT; // 用于防抖动切换角色
 
     bool pressF = false;      // F 键防抖
-
 
     // [新增] 辅助函数：计算 AI 的输入指令
     // 输入：追逐者(follower)，目标(target)

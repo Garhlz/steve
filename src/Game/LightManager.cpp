@@ -20,26 +20,29 @@ int LightManager::addPointLight(glm::vec3 pos, glm::vec3 color) {
 
     PointLight lamp;
     lamp.position = pos;
-
-    // 设置物理参数 (你可以把这些也做成参数传进来，或者用默认值)
     lamp.constant = 1.0f;
-    lamp.linear = 0.045f;    // 覆盖距离 30-50米
+    lamp.linear = 0.045f;
     lamp.quadratic = 0.0075f;
 
-    // 设置颜色强度
-    lamp.ambient = color * 0.1f;
-    lamp.diffuse = color;
-    lamp.specular = color;
+    // [关键修复 1] 永久保存这个灯的原始颜色配置
+    lamp.baseColor = color;
+
+    // 根据当前状态初始化
+    if (isNight) {
+        // 晚上：直接使用原始颜色
+        lamp.ambient  = lamp.baseColor * 0.05f;
+        lamp.diffuse  = lamp.baseColor; // 使用全亮度，不要乘 0.8，否则会变暗
+        lamp.specular = lamp.baseColor;
+    } else {
+        // 白天：关灯
+        lamp.ambient  = glm::vec3(0.0f);
+        lamp.diffuse  = glm::vec3(0.0f);
+        lamp.specular = glm::vec3(0.0f);
+    }
 
     streetLamps.push_back(lamp);
-
-    // 如果当前是晚上，新加的灯要根据夜晚逻辑调整一下亮度吗？
-    // 简单起见，我们假设添加时都是“开启状态”的基础参数
-    // 或者你可以调用一下 setNight() 来刷新它们的状态
-
     return streetLamps.size() - 1;
 }
-
 void LightManager::clearPointLights() {
     streetLamps.clear();
 }
@@ -58,52 +61,83 @@ void LightManager::toggleDayNight() {
 }
 
 void LightManager::setDay() {
-    // --- 天空颜色 ---
-    currentSkyColor = glm::vec3(0.53f, 0.81f, 0.92f); // 天蓝
+    // 1. 全局光照设置 (保持你之前的修改)
+    currentSkyColor = glm::vec3(0.53f, 0.81f, 0.92f);
 
-    // --- 太阳 (方向光) ---
-    // 白天：强烈的白光，从上方斜射下来
-    // sun.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-    sun.direction = glm::normalize(glm::vec3(-1.0f, -0.5f, -1.0f));
-    sun.ambient   = glm::vec3(0.35f, 0.35f, 0.35f);
-    sun.diffuse = glm::vec3(1.2f, 1.2f, 1.1f);
-    sun.specular  = glm::vec3(0.3f, 0.3f, 0.3f);
+    // 太阳方向
+    sun.direction = glm::normalize(glm::vec3(-1.0f, -0.8f, -0.5f));
+    sun.ambient   = glm::vec3(0.12f, 0.15f, 0.20f);
+    sun.diffuse   = glm::vec3(1.3f, 1.25f, 1.15f);
+    sun.specular  = glm::vec3(0.4f, 0.4f, 0.4f);
 
-    // --- 路灯 (点光源) ---
-    // 白天：路灯关闭 (黑色)
+    // 2. 路灯：白天关闭
     for(auto& lamp : streetLamps) {
         lamp.ambient  = glm::vec3(0.0f);
         lamp.diffuse  = glm::vec3(0.0f);
         lamp.specular = glm::vec3(0.0f);
     }
+
+    // =========================================================
+    // 3. 配置天体状态 (静态数据管理)
+    // =========================================================
+
+    // --- 太阳配置 ---
+    sunConfig.visible = true;
+    sunConfig.scale = 3.0f;          // 太阳比较大
+    sunConfig.distance = 40.0f;      // 距离
+    sunConfig.direction = sun.direction; // 太阳模型的位置跟随光照方向
+    // 太阳发光参数 (高亮过曝)
+    sunConfig.emissionAmbient = glm::vec3(0.8f);
+    sunConfig.emissionDiffuse = glm::vec3(0.0f);
+
+    // --- 月亮配置 ---
+    moonConfig.visible = false;      // 白天隐藏月亮
+    // 即使隐藏，也可以给个默认值防止意外
+    moonConfig.scale = 0.06f;
+    moonConfig.distance = 40.0f;
+    moonConfig.direction = glm::normalize(glm::vec3(1.0f, 0.8f, 0.5f)); // 随便给个背对太阳的方向
+    moonConfig.emissionAmbient = glm::vec3(0.0f);
+    moonConfig.emissionDiffuse = glm::vec3(0.0f);
 }
-
 void LightManager::setNight() {
-    // --- 天空颜色 ---
-    currentSkyColor = glm::vec3(0.05f, 0.05f, 0.15f); // 深邃的夜空蓝
+    // 1. 全局光照设置
+    currentSkyColor = glm::vec3(0.02f, 0.02f, 0.08f);
 
-    // --- 月亮 (方向光) ---
-    // 晚上：微弱的蓝调冷光
-    // sun.direction = glm::vec3(-0.2f, -1.0f, -0.3f);
-    sun.direction = glm::normalize(glm::vec3(-1.0f, -0.5f, -1.0f));
-    sun.ambient   = glm::vec3(0.15f, 0.15f, 0.25f); // 偏蓝的暗光
+    // 月亮方向 (模拟太阳落山后的主光源)
+    sun.direction = glm::normalize(glm::vec3(-1.0f, -0.8f, -0.5f));
+    sun.ambient   = glm::vec3(0.01f, 0.01f, 0.02f);
+    sun.diffuse   = glm::vec3(0.1f, 0.12f, 0.2f);
+    sun.specular  = glm::vec3(0.1f, 0.1f, 0.15f);
 
-    // [关键 3] 大幅提高漫反射 (Diffuse)：
-    // 这是让影子出现的关键！必须拉开和 Ambient 的差距。
-    // 使用冷青色/银白色，强度设为 0.4 ~ 0.6，这样影子就有了“深度”
-    sun.diffuse   = glm::vec3(0.4f, 0.45f, 0.6f);   // 皎洁的月光
-
-    // 高光可以弱一点，月光通常比较柔和
-    sun.specular  = glm::vec3(0.3f, 0.3f, 0.4f);
-
-    // --- 路灯 (点光源) ---
-    // 晚上：暖黄色的灯光开启
+    // 2. 开灯
     for(auto& lamp : streetLamps) {
-        glm::vec3 lightColor = glm::vec3(2.0f, 1.8f, 1.0f);
-        lamp.ambient  = lightColor * 0.1f;
-        lamp.diffuse  = lightColor;
-        lamp.specular = glm::vec3(1.0f);
+        // 环境光：非常微弱
+        lamp.ambient  = lamp.baseColor * 0.01f;
+
+        // [调整] 路灯强度乘数
+        // 如果你的 baseColor 是 (1.0, 0.9, 0.6) 这种高值
+        // 在 Gamma 下这已经是极亮了。
+        // 这里乘 0.8 左右比较合适，既亮又不至于变成纯白光球
+        lamp.diffuse  = lamp.baseColor * 0.8f;
+
+        lamp.specular = lamp.baseColor * 0.8f;
     }
+
+    // =========================================================
+    // 3. 配置天体状态
+    // =========================================================
+
+    // --- 太阳配置 ---
+    sunConfig.visible = false;       // 晚上隐藏太阳
+
+    // --- 月亮配置 ---
+    moonConfig.visible = true;
+    moonConfig.scale = 0.06f;        // 保持原定大小
+    moonConfig.distance = 40.0f;
+    moonConfig.direction = sun.direction; // 月亮模型位置跟随当前主光源
+    // 月亮发光参数 (柔和光)
+    moonConfig.emissionAmbient = glm::vec3(0.9f);
+    moonConfig.emissionDiffuse = glm::vec3(0.3f);
 }
 
 void LightManager::apply(Shader& shader) {

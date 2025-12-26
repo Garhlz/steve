@@ -34,7 +34,7 @@ public:
     const std::vector<AABB>& getObstacles() const { return collisionBoxes; }
 
     // 渲染
-    void draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, const LightManager* lights);
+    void draw(Shader& shader, const glm::mat4& view, const glm::mat4& projection, LightManager* lights);
 
     void drawShadow(Shader& shader);
 private:
@@ -60,8 +60,7 @@ private:
     void addStaticObject(const std::string& path, glm::vec3 pos, float scale, float colliderWidth = -1.0f);
 
     // 辅助绘制天体
-    void drawCelestialBody(std::shared_ptr<TriMesh> mesh, Shader& shader,
-                              const LightManager* lights, bool isSun);
+    void drawCelestialBody(std::shared_ptr<TriMesh> mesh, Shader& shader,LightManager* lights, bool isSun);
 
 };
 

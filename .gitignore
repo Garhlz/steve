@@ -6,6 +6,8 @@ clion_build/
 **/tree.txt
 **/repomix-output.xml
 **/diff.txt
+tmp.py
+log.txt
 
 #glad.c
 #assets/

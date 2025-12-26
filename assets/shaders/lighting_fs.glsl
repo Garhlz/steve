@@ -140,8 +140,11 @@ void main()
     // phase 3: spot light
     result += CalcSpotLight(spotLight, norm, FragPos, viewDir, albedo);
 
+//    FragColor = vec4(result, 1.0);
+
+    result = pow(result, vec3(1.0 / 2.2));
+
     FragColor = vec4(result, 1.0);
-//    FragColor = vec4(vec3(1.0 - shadow), 1.0);
 }
 
 // [修改] CalcDirLight 实现

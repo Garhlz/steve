@@ -11,7 +11,7 @@ std::shared_ptr<TriMesh> ResourceManager::getMesh(const std::string& path) {
     // 2. 如果没找到，加载新模型
     std::cout << "[Resource] Loading New Model: " << path << std::endl;
     std::shared_ptr<TriMesh> newMesh = std::make_shared<TriMesh>();
-    newMesh->readObjAssimp(path);
+    newMesh->readObjTiny(path);
 
     // 3. 存入缓存
     meshes[path] = newMesh;
