@@ -22,6 +22,13 @@ find_package(imgui CONFIG REQUIRED)
 # 2. 源代码管理 & 生成可执行文件
 # ==========================================
 
+# [修改] 定义资源文件变量
+if(WIN32)
+	set(app_icon_resource "${CMAKE_CURRENT_SOURCE_DIR}/steve.rc")
+else()
+	set(app_icon_resource "")
+endif()
+
 # A. 先扫描源文件
 # 自动扫描 src 下所有的 .cpp 和 .c 文件
 file(GLOB_RECURSE SOURCES
@@ -30,7 +37,10 @@ file(GLOB_RECURSE SOURCES
 		"src/Vendor/*.c"
 		"src/Vendor/*.cpp"
 		"src/*.cpp"
+		${app_icon_resource}
 )
+
+
 
 # B. 必须先创建可执行文件目标，后面才能对它进行设置
 add_executable(${PROJECT_NAME} ${SOURCES})

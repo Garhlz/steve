@@ -11,8 +11,8 @@ Steve::Steve()
       bodyYaw(180.0f),         // 初始背对Z轴，设为180让他面朝相机(初始+Z)
       headYaw(0.0f),
       isArmRaised(false),
-      moveSpeed(4.0f),
-      rotateSpeed(175.0f),     // 转身速度
+      moveSpeed(5.0f),
+      rotateSpeed(180.0f),     // 转身速度
       walkTime(0.0f),
       swingTime(0.0f),
       swingRange(45.0f),

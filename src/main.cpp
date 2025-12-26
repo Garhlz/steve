@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include "Game/Game.h"
-
+#include <stb_image.h>
 // --- 全局变量 ---
 Game* steveGame = nullptr;
 
@@ -38,6 +38,27 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
+
+    // ====================================================
+    // [新增] 设置窗口图标
+    // ====================================================
+    {
+        GLFWimage images[1];
+        int channels;
+        // 强制加载为 4 通道 (RGBA)，因为图标通常需要透明度
+        // 请确保路径正确，比如放在 assets/icon.png
+        images[0].pixels = stbi_load("assets/icon.png", &images[0].width, &images[0].height, &channels, 4);
+
+        if (images[0].pixels) {
+            // 设置图标
+            glfwSetWindowIcon(window, 1, images);
+            // 释放内存
+            stbi_image_free(images[0].pixels);
+        } else {
+            std::cout << "Warning: Failed to load window icon." << std::endl;
+        }
+    }
+    // ====================================================
 
     // [新增] 开启垂直同步 (V-Sync)
     // 0 = 不限制 (400 FPS+)

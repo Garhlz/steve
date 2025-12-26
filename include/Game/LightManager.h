@@ -60,17 +60,32 @@ public:
 
     // [修改] 接收中心点位置（通常是玩家位置）
     glm::mat4 getLightSpaceMatrix(glm::vec3 centerPos) const;
+
+    void setLampPosition(int index, glm::vec3 pos);
+
+    // [新增] 动态添加一个点光源
+    // 返回该灯在数组中的索引，如果超过 Shader 上限则返回 -1
+    int addPointLight(glm::vec3 pos, glm::vec3 color);
+
+    // [新增] 清空所有点光源 (重新加载地图时用)
+    void clearPointLights();
+
+    // 设置白天参数
+    void setDay();
+    // 设置黑夜参数
+    void setNight();
 private:
     bool isNight;
     glm::vec3 currentSkyColor{};
 
     DirLight sun{};
-    std::vector<PointLight> streetLamps; // 存储4个路灯
+    std::vector<PointLight> streetLamps; // 这里不再预设大小
 
-    // 内部函数：设置白天参数
-    void setDay();
-    // 内部函数：设置黑夜参数
-    void setNight();
+    // Shader 通常有最大光源限制，比如 #define NR_POINT_LIGHTS 8
+    // 我们在 C++ 里也做个保护
+    const int MAX_POINT_LIGHTS = 8;
+
+
 
     // [新增] 阴影资源
     unsigned int depthMapFBO;

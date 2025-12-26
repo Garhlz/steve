@@ -45,7 +45,7 @@ public:
     GLFWwindow* GetWindow() const { return window; }
 
     void SetMouseMode(bool capture);
-
+    bool isFollowing = false;
 private:
     GLFWwindow* window;
 
@@ -68,6 +68,14 @@ private:
     bool pressB;
 
     bool pressT; // 用于防抖动切换角色
+
+    bool pressF = false;      // F 键防抖
+
+
+    // [新增] 辅助函数：计算 AI 的输入指令
+    // 输入：追逐者(follower)，目标(target)
+    // 输出：模拟的按键输入
+    SteveInput calculateFollowInput(std::shared_ptr<Steve> follower, std::shared_ptr<Steve> target);
 };
 
 #endif

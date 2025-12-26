@@ -4,35 +4,51 @@
 #include <glm/ext/matrix_transform.hpp>
 
 LightManager::LightManager() : isNight(false) {
-    // 预留4个路灯的空间
-    streetLamps.resize(4);
 }
 
 void LightManager::init() {
-    // 1. 初始化路灯位置 (假设场景是一个 10x10 的草地)
-    // 之前是 3.0，太近了。地面大概是 25x25 的范围，把路灯放到 +/- 10.0 的位置
-    // Y轴设为 4.0，因为要放大路灯，灯泡的高度自然也会变高
-    float lampDist = 10.0f;
-    float lampHeight = 4.0f;
+    // [修改] 移除所有关于 streetLamps 的初始化代码
+    // 只保留太阳的初始化
+    setDay();
+}
 
-    streetLamps[0].position = glm::vec3(-lampDist, lampHeight, -lampDist);
-    streetLamps[1].position = glm::vec3( lampDist, lampHeight, -lampDist);
-    streetLamps[2].position = glm::vec3(-lampDist, lampHeight,  lampDist);
-    streetLamps[3].position = glm::vec3( lampDist, lampHeight,  lampDist);
-
-    // 初始化所有路灯的衰减系数 (覆盖距离约 5-10 米)
-    for(auto& lamp : streetLamps) {
-        lamp.constant = 1.0f;
-        // [修改] 关键点：大幅减小这两个值
-        // linear: 一次项，控制中距离衰减
-        lamp.linear = 0.04f;     // 原来是 0.09 (减小4倍)
-
-        // quadratic: 二次项，控制远距离衰减 (影响最大)
-        lamp.quadratic = 0.016f; // 原来是 0.032 (减小6倍)
+int LightManager::addPointLight(glm::vec3 pos, glm::vec3 color) {
+    if (streetLamps.size() >= MAX_POINT_LIGHTS) {
+        std::cout << "[LightManager] Warning: Max point lights reached!" << std::endl;
+        return -1;
     }
 
-    // 默认开始是白天
-    setDay();
+    PointLight lamp;
+    lamp.position = pos;
+
+    // 设置物理参数 (你可以把这些也做成参数传进来，或者用默认值)
+    lamp.constant = 1.0f;
+    lamp.linear = 0.045f;    // 覆盖距离 30-50米
+    lamp.quadratic = 0.0075f;
+
+    // 设置颜色强度
+    lamp.ambient = color * 0.1f;
+    lamp.diffuse = color;
+    lamp.specular = color;
+
+    streetLamps.push_back(lamp);
+
+    // 如果当前是晚上，新加的灯要根据夜晚逻辑调整一下亮度吗？
+    // 简单起见，我们假设添加时都是“开启状态”的基础参数
+    // 或者你可以调用一下 setNight() 来刷新它们的状态
+
+    return streetLamps.size() - 1;
+}
+
+void LightManager::clearPointLights() {
+    streetLamps.clear();
+}
+
+// [新增] 实现接口
+void LightManager::setLampPosition(int index, glm::vec3 pos) {
+    if (index >= 0 && index < streetLamps.size()) {
+        streetLamps[index].position = pos;
+    }
 }
 
 void LightManager::toggleDayNight() {
@@ -83,14 +99,10 @@ void LightManager::setNight() {
     // --- 路灯 (点光源) ---
     // 晚上：暖黄色的灯光开启
     for(auto& lamp : streetLamps) {
-        lamp.ambient  = glm::vec3(0.2f, 0.2f, 0.0f); // 环境光微亮即可
-
-        // [修改] 强度降回来，不要太离谱
-        // 白天太阳是 0.8，路灯核心设为 2.0 左右就足够亮瞎眼了
-        lamp.diffuse  = glm::vec3(2.0f, 1.8f, 1.0f);
-
-        // [修改] 高光也不要太强，否则树叶会像塑料做的
-        lamp.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+        glm::vec3 lightColor = glm::vec3(2.0f, 1.8f, 1.0f);
+        lamp.ambient  = lightColor * 0.1f;
+        lamp.diffuse  = lightColor;
+        lamp.specular = glm::vec3(1.0f);
     }
 }
 
@@ -101,8 +113,11 @@ void LightManager::apply(Shader& shader) {
     shader.setVec3("dirLight.diffuse",   sun.diffuse);
     shader.setVec3("dirLight.specular",  sun.specular);
 
-    // 2. 设置点光源 (Street Lamps)
-    for(int i = 0; i < 4; i++) {
+    // [修改] 动态循环，不再写死 i < 4
+    // 还要告诉 Shader 实际有多少个灯
+    shader.setInt("nr_point_lights", (int)streetLamps.size());
+
+    for(size_t i = 0; i < streetLamps.size(); i++) {
         std::string base = "pointLights[" + std::to_string(i) + "]";
         shader.setVec3(base + ".position",  streetLamps[i].position);
         shader.setVec3(base + ".ambient",   streetLamps[i].ambient);

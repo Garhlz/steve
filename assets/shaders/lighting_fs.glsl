@@ -46,7 +46,7 @@ struct SpotLight {
     vec3 specular;
 };
 
-#define NR_POINT_LIGHTS 4
+#define NR_POINT_LIGHTS 16
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -62,7 +62,7 @@ uniform SpotLight spotLight;
 uniform Material material;
 // [新增] 阴影贴图采样器
 uniform sampler2D shadowMap;
-
+uniform int nr_point_lights;
 // function prototypes
 // [修改] CalcDirLight 增加 shadow 参数
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir, vec3 albedo, float shadow);
@@ -135,7 +135,7 @@ void main()
     // phase 1: directional lighting
     vec3 result = CalcDirLight(dirLight, norm, viewDir, albedo, shadow);
     // phase 2: point lights
-    for(int i = 0; i < NR_POINT_LIGHTS; i++)
+    for(int i = 0; i < nr_point_lights; i++)
     result += CalcPointLight(pointLights[i], norm, FragPos, viewDir, albedo);
     // phase 3: spot light
     result += CalcSpotLight(spotLight, norm, FragPos, viewDir, albedo);

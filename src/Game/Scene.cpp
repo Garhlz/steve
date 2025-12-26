@@ -22,31 +22,108 @@ void Scene::init() {
     std::cout << "Scene initialized." << std::endl;
 }
 
-// [核心] 地图加载逻辑
 void Scene::loadMap(const std::shared_ptr<LightManager>& lightManager) {
-    // 清空旧数据
     renderQueue.clear();
     collisionBoxes.clear();
+    lightManager->clearPointLights();
 
-    // === 1. 加载路灯 ===
-    // 从 LightManager 获取位置 (数据源)
-    const auto& lamps = lightManager->getStreetLamps();
-    for (const auto& lamp : lamps) {
-        // LightManager 里的 position.y 是灯泡的高度 (4.0f)
-        // 但我们绘制模型时，需要指定的是底座的位置 (通常是地面 0.0f)
-        glm::vec3 drawPos = lamp.position;
-        drawPos.y = 0.0f; // 强制落地！
-        // 调用通用函数：路径, 位置, 缩放, 碰撞半径(0.5)
-        // 注意：addStaticObject 会自动处理贴地逻辑
-        addStaticObject("assets/models/street_lamp/model.obj", drawPos, 2.5f, 0.5f);
+    // ==========================================
+    // 1. 灯光布局
+    // ==========================================
+    struct LampConfig { glm::vec3 pos; glm::vec3 color; };
+    std::vector<LampConfig> lamps = {
+        // [灯1] 右前路引：稍微调亮一点，作为主光源
+        { glm::vec3(5.0f, 4.0f, 6.0f), glm::vec3(1.2f, 1.1f, 1.0f) },
+        // [灯2] 露营暖光
+        { glm::vec3(16.0f, 4.5f, -2.0f), glm::vec3(1.0f, 0.6f, 0.3f) },
+        // [灯3] 森林冷光
+        { glm::vec3(-12.0f, 4.0f, -6.0f), glm::vec3(0.4f, 0.6f, 1.0f) },
+        // [灯4] 远景背光
+        { glm::vec3(0.0f, 5.0f, -25.0f), glm::vec3(0.8f, 0.8f, 0.9f) }
+    };
+
+    for (const auto& cfg : lamps) {
+        lightManager->addPointLight(cfg.pos, cfg.color);
+        glm::vec3 modelPos = cfg.pos;
+        modelPos.y = 0.0f;
+        addStaticObject("assets/models/street_lamp/model.obj", modelPos, 2.5f, 0.5f);
     }
+    if (lightManager->isNightMode()) lightManager->setNight();
 
-    // === 2. 加载树木 ===
-    // 原来的逻辑：位置(0,0,0), 缩放 5.0, 碰撞半径 1.0
-    addStaticObject("assets/models/pine_tree/model.obj", glm::vec3(0.0f, 0.0f, 0.0f), 5.0f, 1.0f);
+    // ==========================================
+    // 2. 环境造景
+    // ==========================================
 
-    std::cout << "Map Loaded: " << renderQueue.size() << " objects, "
-              << collisionBoxes.size() << " colliders." << std::endl;
+    // ------------------------------------------
+    // [Zone A] 出生点 (Spawn Area) - 重度装修
+    // ------------------------------------------
+    // 1. "背景墙"：在出生点身后(Z=13~15)堆砌掩体，消除背后空旷感
+    // 左后方的大石头
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(-5.0f, 0.0f, 14.0f), 2.5f, 1.5f);
+    // 右后方的巨型灌木墙 (Scale 15.0!)
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(6.0f, 0.0f, 14.0f), 15.0f, 2.0f);
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(1.0f, 0.0f, 15.0f), 12.0f, 2.0f);
+
+    // 2. "侧翼掩护"：左边的一棵树，增加包围感
+    addStaticObject("assets/models/another_tree/model.obj", glm::vec3(-9.0f, 0.0f, 10.0f), 4.5f, 0.6f);
+    // 树下的灌木 (Scale 10.0)
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(-8.0f, 0.0f, 11.0f), 10.0f, 1.5f);
+
+    // 3. "地面细节"：脚下的碎石路 (Pebbles)
+    // 撒一把小石头在出生点 (-2 ~ 2, 8 ~ 10)
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(-1.5f, 0.0f, 9.5f), 0.4f, 0.0f);
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(0.5f, 0.0f, 8.5f), 0.3f, 0.0f);
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(2.5f, 0.0f, 7.0f), 0.5f, 0.0f);
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(-2.0f, 0.0f, 7.5f), 0.4f, 0.0f);
+
+    // 路边的杂草 (Scale 6.0，不再用1.5这种微缩版了)
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(3.5f, 0.0f, 6.0f), 6.0f, 0.0f);
+
+
+    // ------------------------------------------
+    // [Zone B] 右侧：露营地 (The Campsite)
+    // ------------------------------------------
+    // 布局维持之前的三角形结构，微调灌木大小
+    addStaticObject("assets/models/another_tree/model.obj", glm::vec3(15.0f, 0.0f, -8.0f), 5.5f, 0.8f);
+    addStaticObject("assets/models/park_bench/model.obj", glm::vec3(13.0f, 0.0f, -5.0f), 2.0f, 3.0f);
+    addStaticObject("assets/models/camp_fire/model.obj", glm::vec3(10.0f, 0.0f, -3.0f), 0.04f, 1.5f);
+
+    // 外围保护圈
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(16.0f, 0.0f, -4.0f), 1.2f, 0.8f);
+    // 这里的灌木也放大到 8.0
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(15.0f, 0.0f, -2.0f), 8.0f, 1.0f);
+
+
+    // ------------------------------------------
+    // [Zone C] 左侧：野生林地 (The Forest)
+    // ------------------------------------------
+    // 树木
+    addStaticObject("assets/models/pine_tree/model.obj", glm::vec3(-12.0f, 0.0f, -6.0f), 5.5f, 1.0f);
+    addStaticObject("assets/models/pine_tree/model.obj", glm::vec3(-18.0f, 0.0f, -10.0f), 6.0f, 1.2f);
+    addStaticObject("assets/models/pine_tree/model.obj", glm::vec3(-10.0f, 0.0f, -14.0f), 4.5f, 0.8f);
+
+    // 填充灌木 (Scale 10.0~12.0)
+    // 这样灌木就有半人高了，甚至比Steve还高一点，很有野外探险的感觉
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(-14.0f, 0.0f, -8.0f), 10.0f, 1.5f);
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(-11.0f, 0.0f, -10.0f), 12.0f, 1.5f);
+    addStaticObject("assets/models/bush/model.obj", glm::vec3(-19.0f, 0.0f, -8.0f), 10.0f, 1.5f);
+
+    // 巨石
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(-8.0f, 0.0f, -8.0f), 2.0f, 1.5f);
+
+
+    // ------------------------------------------
+    // [Zone D] 远景球门
+    // ------------------------------------------
+    addStaticObject("assets/models/rock/model.obj", glm::vec3(0.0f, 0.0f, -22.0f), 3.0f, 2.0f);
+    addStaticObject("assets/models/another_tree/model.obj", glm::vec3(7.0f, 0.0f, -23.0f), 4.0f, 0.6f);
+    addStaticObject("assets/models/pine_tree/model.obj", glm::vec3(-7.0f, 0.0f, -23.0f), 5.0f, 1.0f);
+
+
+    // [Center] 足球
+    addStaticObject("assets/models/soccer_ball/model.obj", glm::vec3(0.0f, 0.0f, 2.0f), 0.5f, 0.3f);
+
+    std::cout << "Map Loaded: " << renderQueue.size() << " objects." << std::endl;
 }
 
 // [核心] 通用物体添加函数 (自动计算贴地和碰撞)

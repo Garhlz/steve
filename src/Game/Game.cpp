@@ -24,17 +24,21 @@ void Game::Init() {
     // [!!! 必须添加这一行 !!!]
     // 没有这一行，显卡里根本没有创建阴影贴图，Shader 读到的全是 0
     lightManager->initShadows();
-    // 3. Camera
-    camera = std::make_shared<Camera>(glm::vec3(1.0f, 2.0f, 15.0f));
 
-    // 4. Steve
+    // Camera 保持在后面
+    camera = std::make_shared<Camera>(glm::vec3(0.0f, 3.0f, 18.0f)); // 稍微抬高一点视角，看得更清楚
+
+    camera->MovementSpeed = 8.0f;
+
+    // 4. Steve & Alex 出生点
+    // 让他们站在“空地”的边缘，面对足球
     steve = std::make_shared<Steve>();
-    steve->init("cornelia"); // 还是用原来的模型
-    steve->setPosition(glm::vec3(0.0f, 1.141f, 10.0f)); // 初始位置
+    steve->init("cornelia");
+    steve->setPosition(glm::vec3(-2.0f, 1.141f, 8.0f)); // 左边一点
 
     alex = std::make_shared<Steve>();
-    alex->init("minecraft_girl"); // 加载新模型 (确保 assets/models/minecraft_girl/ 存在)
-    alex->setPosition(glm::vec3(2.0f, 1.141f, 10.0f)); // 站在旁边
+    alex->init("minecraft_girl");
+    alex->setPosition(glm::vec3(2.0f, 1.141f, 8.0f));   // 右边一点
 
     currentCharacter = steve;
 
@@ -59,6 +63,7 @@ void Game::Init() {
 
     std::cout << "Game Init Complete." << std::endl;
 }
+
 void Game::ProcessInput(float dt) {
     if (!window) return;
 
@@ -102,6 +107,17 @@ void Game::ProcessInput(float dt) {
             pressT = false;
         }
 
+        // [新增] F 键切换跟随模式
+        if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+            if (!pressF) {
+                isFollowing = !isFollowing; // 切换开关
+                std::cout << "[Game] Follow Mode: " << (isFollowing ? "ON" : "OFF") << std::endl;
+                pressF = true;
+            }
+        } else {
+            pressF = false;
+        }
+
         // B 键开关灯
         if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
             if (!pressB) {
@@ -129,7 +145,9 @@ void Game::Update(float dt) {
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) playerInput.moveDir.x += 1.0f; // 右转
 
             if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) playerInput.jump = true;
-            if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) playerInput.attack = true;
+            if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+                playerInput.attack = true;
+            }
             if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) playerInput.shakeHeadLeft = true;
             if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) playerInput.shakeHeadRight = true;
         }
@@ -138,13 +156,23 @@ void Game::Update(float dt) {
         // -> 当前角色接收玩家输入
         currentCharacter->update(dt, playerInput, staticObstacles);
 
-        // -> 另一个角色接收空输入 (Idle)，但依然受重力影响
+        // 空输入 (Idle)
         SteveInput idleInput; // 默认全为 false/0
-        if (currentCharacter == steve) {
-            alex->update(dt, idleInput, staticObstacles);
+
+        // B. 另一个角色 -> 听 AI 的 (如果有跟随模式)
+        SteveInput aiInput; // 默认为空
+
+        std::shared_ptr<Steve> otherCharacter = (currentCharacter == steve) ? alex : steve;
+
+        if (isFollowing) {
+            // 计算 AI 输入：让 other 追逐 current
+            aiInput = calculateFollowInput(otherCharacter, currentCharacter);
         } else {
-            steve->update(dt, idleInput, staticObstacles);
+            aiInput = idleInput;
         }
+
+        // 更新另一个角色
+        otherCharacter->update(dt, aiInput, staticObstacles);
 
         // 3. 更新相机
         camController->update(dt);
@@ -240,4 +268,68 @@ void Game::SetMouseMode(bool capture) {
     } else {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
+}
+
+SteveInput Game::calculateFollowInput(std::shared_ptr<Steve> follower, std::shared_ptr<Steve> target) {
+    SteveInput input; // 默认全是 false/0
+
+    // 参数设置
+    float stopDistance = 2.5f; // 停止距离
+    float turnThreshold = 0.98f; // 角度容差 (点积)，越接近 1.0 走得越直
+
+    // 1. 获取位置向量
+    glm::vec3 followerPos = follower->getPosition();
+    glm::vec3 targetPos = target->getPosition();
+
+    // 2. 计算方向向量 (忽略高度差，只在 XZ 平面移动)
+    glm::vec3 diff = targetPos - followerPos;
+    diff.y = 0.0f; // 扁平化
+
+    float dist = glm::length(diff);
+
+    // 3. 距离检测：如果小于停止距离，直接返回空指令 (站立不动)
+    if (dist <= stopDistance) {
+        return input;
+    }
+
+    // --- 如果代码走到这里，说明需要移动 ---
+
+    // 4. 模拟按下 "W" (前进)
+    input.moveDir.y = 1.0f;
+
+    // 5. 计算转向 (模拟按下 A/D)
+    // 我们需要判断目标在我的左边还是右边
+    if (dist > 0.01f) {
+        glm::vec3 targetDir = glm::normalize(diff); // 目标方向
+        glm::vec3 currentFront = follower->getFront(); // 当前面朝方向
+
+        // 使用 叉乘 (Cross Product) 判断左右
+        // 在 XZ 平面，叉乘的 Y 分量可以告诉我们旋转方向
+        // cross(A, B).y > 0 表示 B 在 A 的左侧 (逆时针)
+        // cross(A, B).y < 0 表示 B 在 A 的右侧 (顺时针)
+        float crossY = currentFront.z * targetDir.x - currentFront.x * targetDir.z;
+        // 或者直接用 glm: float crossY = glm::cross(currentFront, targetDir).y;
+
+        // 使用 点积 (Dot Product) 判断是否已经对准了
+        float dotVal = glm::dot(currentFront, targetDir);
+
+        // 只有当方向偏差较大时才转向 (避免震荡)
+        if (dotVal < turnThreshold) {
+            if (crossY > 0) {
+                // 目标在左边 -> 模拟按下 A (MoveDir.x = -1)
+                // 记得之前的逻辑：A键(-1)会让 bodyYaw 增加 (左转)
+                input.moveDir.x = -1.0f;
+            } else {
+                // 目标在右边 -> 模拟按下 D (MoveDir.x = 1)
+                input.moveDir.x = 1.0f;
+            }
+        }
+
+        // [可选优化] 如果需要跳跃 (比如目标比我高很多)
+        if (targetPos.y > followerPos.y + 0.5f) {
+            input.jump = true;
+        }
+    }
+
+    return input;
 }
