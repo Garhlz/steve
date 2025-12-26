@@ -1,14 +1,20 @@
 #include "Game/CameraController.h"
 #include <iostream>
 
-CameraController::CameraController(std::shared_ptr<Camera> cam, std::shared_ptr<Steve> player)
-    : camera(cam), steve(player), currentMode(CameraMode::FIRST_PERSON), isTabPressed(false)
+CameraController::CameraController(std::shared_ptr<Camera> cam, std::shared_ptr<Steve> initialTarget)
+    : camera(cam), target(initialTarget), currentMode(CameraMode::FIRST_PERSON), isTabPressed(false)
 {
-    // [修正 1] 初始角度
-    // 之前是 -90 (左侧)，改为 180 (背面 +Z 轴)
     orbitYaw = 180.0f;
-    orbitPitch = 10.0f; // 初始俯仰角
+    orbitPitch = 10.0f;
 }
+
+void CameraController::setTarget(std::shared_ptr<Steve> newTarget) {
+    this->target = newTarget;
+    // 切换目标时，为了防止相机突然跳变，可以重置 orbitYaw 为当前目标的背后
+    orbitYaw = target->getBodyYaw() + 180.0f;
+    std::cout << "[Camera] Target Switched!" << std::endl;
+}
+
 void CameraController::toggleMode() {
     if (currentMode == CameraMode::FIRST_PERSON) {
         currentMode = CameraMode::THIRD_PERSON;
@@ -16,7 +22,7 @@ void CameraController::toggleMode() {
         // [核心修复] 切换瞬间，将相机“瞬移”到 Steve 的正后方
         // Steve 面向 bodyYaw，相机要在他的后面，所以是 bodyYaw + 180 度
         // 这样无论 Steve 之前转向哪里，切视角的瞬间相机都会正对着他的后背
-        orbitYaw = steve->getBodyYaw() + 180.0f;
+        orbitYaw = target->getBodyYaw() + 180.0f;
 
         // 重置俯仰角，保证每次切过来都是平视
         orbitPitch = 0.0f;
@@ -26,11 +32,11 @@ void CameraController::toggleMode() {
         currentMode = CameraMode::FIRST_PERSON;
 
         // 切回第一人称时，把相机放回眼睛的位置
-        camera->Position = steve->getPosition() + glm::vec3(0.0f, 1.7f, 0.0f);
+        camera->Position = target->getPosition() + glm::vec3(0.0f, 1.7f, 0.0f);
 
         // [优化] 切回第一人称时，让相机看向 Steve 当前面向的方向
         // 这样切换过程会非常丝滑，不会跳变
-        camera->Yaw = steve->getBodyYaw() - 90.0f; // Camera类通常 0度是向右，所以要-90指向前方
+        camera->Yaw = target->getBodyYaw() - 90.0f; // Camera类通常 0度是向右，所以要-90指向前方
         camera->Pitch = 0.0f;
 
         std::cout << "[Camera] Switched to First Person" << std::endl;
@@ -106,10 +112,12 @@ void CameraController::processScroll(float yoffset) {
 
 void CameraController::update(float dt) {
     if (currentMode == CameraMode::THIRD_PERSON) {
-        glm::vec3 stevePos = steve->getPosition();
+        if(!target) return; // 安全检查
+
+        glm::vec3 targetPos = target->getPosition();
 
         // 目标注视点 (Steve 的头部)
-        glm::vec3 lookAtTarget = stevePos + glm::vec3(0.0f, 1.5f, 0.0f);
+        glm::vec3 lookAtTarget = targetPos + glm::vec3(0.0f, 1.5f, 0.0f);
 
         // --- 核心逻辑：球坐标转笛卡尔坐标 ---
         // 计算相机相对于注视点的偏移向量

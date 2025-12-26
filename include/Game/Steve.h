@@ -8,7 +8,7 @@
 // 然后再包含 GLM 和 GLFW
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <GLFW/glfw3.h>
+// #include <GLFW/glfw3.h>
 
 #include "Core/AABB.h"
 #include "Core/TriMesh.h"
@@ -20,36 +20,37 @@ enum class SteveState {
     ATTACK      // 攻击 (播放挥剑动画，锁定移动)
 };
 
+struct SteveInput {
+    // x: 左右移动 (-1 左, 1 右, 0 不动) -> 对应 A/D 控制转身
+    // z: 前后移动 (1 前, -1 后, 0 不动)  -> 对应 W/S 控制前进
+    glm::vec2 moveDir = glm::vec2(0.0f);
+    bool jump = false;
+    bool attack = false;
+    bool shakeHeadLeft = false;  // Q
+    bool shakeHeadRight = false; // E
+};
+
 class Steve {
 public:
     Steve();
-    ~Steve() = default; // 智能指针会自动释放内存，析构函数可以用默认的
+    ~Steve() = default;
 
-    // 初始化：加载模型
     void init(const std::string& characterName);
 
-    // 更新：处理输入和动画计时
-    void update(float deltaTime, GLFWwindow* window, bool enableInput = true);
+    // [核心修改] update 不再接收 window，而是接收 input 结构体
+    // 这样无论是 玩家控制 还是 AI控制，只需要构造这个结构体传进去即可
+    void update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles);
 
-    // 移除 view, projection, cameraPos (不需要传进去了)
     void draw(Shader& shader);
-    // 新增阴影绘制接口
     void drawShadow(Shader& shader);
 
-    // 设置位置（如果以后想移动 Steve）
     void setPosition(glm::vec3 pos) { position = pos; }
-
-    // Getters 用于相机跟随
     glm::vec3 getPosition() const { return position; }
-    glm::vec3 getFront() const { return front; } // 获取面朝的方向
+    glm::vec3 getFront() const { return front; }
     float getBodyYaw() const { return bodyYaw; }
 
-    // update 增加障碍物参数
-    void update(float dt, GLFWwindow* window, const std::vector<AABB>& obstacles, bool enableInput = true);
-
-    // 获取 Steve 当前的包围盒
+    // 获取碰撞盒
     AABB getAABB() const {
-        // Steve 尺寸：宽 0.6, 高 1.8, 厚 0.6
         return AABB(position + glm::vec3(0.0f, 0.9f, 0.0f), glm::vec3(0.6f, 1.8f, 0.6f));
     }
 private:
@@ -96,10 +97,10 @@ private:
                      glm::vec3 rotateAxis);
 
 
-    // [新增] 私有辅助函数
-    glm::vec3 processMovementInput(GLFWwindow* window, float dt);
+    // [修改] 内部处理函数也只需接收 input
+    glm::vec3 processMovement(const SteveInput& input, float dt);
     void applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& obstacles);
-    void processActions(GLFWwindow* window, float dt);
+    void processActions(const SteveInput& input, float dt);
     void updateAnimation(float dt);
 };
 

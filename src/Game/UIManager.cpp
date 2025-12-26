@@ -50,7 +50,7 @@ void UIManager::Render(Game& game) {
 // === 辅助逻辑实现 ===
 
 void UIManager::RenderControlsList() {
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "--- CONTROLS ---");
+    // ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "--- CONTROLS ---");
     ImGui::Spacing();
 
     ImGui::Columns(2, "controls_columns", false); 
@@ -59,8 +59,10 @@ void UIManager::RenderControlsList() {
     ImGui::Text("W / A / S / D"); ImGui::NextColumn(); ImGui::Text(": Move Character"); ImGui::NextColumn();
     ImGui::Text("Mouse");         ImGui::NextColumn(); ImGui::Text(": Rotate Camera");  ImGui::NextColumn();
     ImGui::Text("TAB");           ImGui::NextColumn(); ImGui::Text(": Switch Mode");    ImGui::NextColumn();
+    ImGui::Text("T");             ImGui::NextColumn(); ImGui::Text(": Switch Character");    ImGui::NextColumn();
     ImGui::Text("R (Hold)");      ImGui::NextColumn(); ImGui::Text(": Swing Sword");    ImGui::NextColumn();
     ImGui::Text("Q / E (Hold)");  ImGui::NextColumn(); ImGui::Text(": Shake Head");     ImGui::NextColumn();
+    ImGui::Text("SPACE");         ImGui::NextColumn(); ImGui::Text(": Jump");           ImGui::NextColumn();
     ImGui::Text("B");             ImGui::NextColumn(); ImGui::Text(": Day/Night");      ImGui::NextColumn();
     ImGui::Text("ESC");           ImGui::NextColumn(); ImGui::Text(": Pause/Resume");   ImGui::NextColumn();
     

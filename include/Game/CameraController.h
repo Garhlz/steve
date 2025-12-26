@@ -5,6 +5,8 @@
 #include "Core/Camera.h"
 #include "Game/Steve.h"
 
+class Steve; // 前向声明
+
 enum class CameraMode {
     FIRST_PERSON,   // 第一人称 / 自由观察者 (原 Observer Mode)
     THIRD_PERSON    // 第三人称跟随
@@ -12,8 +14,10 @@ enum class CameraMode {
 
 class CameraController {
 public:
-    CameraController(std::shared_ptr<Camera> cam, std::shared_ptr<Steve> player);
+    CameraController(std::shared_ptr<Camera> cam, std::shared_ptr<Steve> initialTarget);
 
+    // [新增] 切换目标的方法
+    void setTarget(std::shared_ptr<Steve> newTarget);
     // 每帧调用：根据模式更新相机位置
     void update(float dt);
 
@@ -28,7 +32,7 @@ public:
 
 private:
     std::shared_ptr<Camera> camera;
-    std::shared_ptr<Steve> steve;
+    std::shared_ptr<Steve> target;
 
     CameraMode currentMode;
     bool isTabPressed; // 防抖动

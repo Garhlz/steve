@@ -41,87 +41,73 @@ void Steve::init(const std::string& characterName) {
 
     sword    = ResourceManager::getInstance().getMesh("assets/models/diamond_sword/model.obj");
 }
-
-void Steve::update(float dt, GLFWwindow* window, const std::vector<AABB>& obstacles, bool enableInput) {
+// [核心修改] Update
+void Steve::update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles) {
     state = SteveState::IDLE;
 
-    if (enableInput) {
-        // 1. 处理水平移动输入 (获取 WASD 意图)
-        glm::vec3 velocity = processMovementInput(window, dt);
+    // 1. 处理移动 (基于 Input)
+    glm::vec3 velocity = processMovement(input, dt);
 
-        // [新增] 处理跳跃输入
-        // 只有在地面上才能跳
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && isGrounded) {
-            verticalVelocity = jumpForce;
-            isGrounded = false;
-            // 可以在这里切换状态，比如 state = SteveState::JUMP;
-        }
-
-        // 2. 应用水平碰撞并移动 X/Z
-        applyCollisionAndMove(velocity, obstacles);
-
-        // 3. 处理动作 (头部/手臂)
-        processActions(window, dt);
+    // 2. 处理跳跃 (基于 Input)
+    if (input.jump && isGrounded) {
+        verticalVelocity = jumpForce;
+        isGrounded = false;
     }
 
-    // ==========================================
-    // [新增] 4. 垂直物理模拟 (Gravity & Jump)
-    // ==========================================
+    // 3. 应用水平物理
+    applyCollisionAndMove(velocity, obstacles);
 
-    // v = v0 - g * t
+    // 4. 处理其他动作
+    processActions(input, dt);
+
+    // 5. 垂直物理 (重力)
     verticalVelocity -= gravity * dt;
-
-    // y = y0 + v * t
     position.y += verticalVelocity * dt;
-
-    // 地面检测 (简单版：只检测 Y < groundLevel)
     if (position.y < groundLevel) {
-        position.y = groundLevel;   // 修正位置不掉下去
-        verticalVelocity = 0.0f;    // 落地后速度归零
+        position.y = groundLevel;
+        verticalVelocity = 0.0f;
         isGrounded = true;
-    } else {
-        // 如果高度由于某些原因(比如从台阶走下来)高于地面，就视为滞空
-        // 注意：这里可能会在起跳的第一帧有一点冲突，但加上容差通常没事
-        // 为了严谨，可以用 epsilon，或者只在下降时检测
-        if(position.y > groundLevel + 0.001f) {
-            isGrounded = false;
-        }
+    } else if (position.y > groundLevel + 0.001f) {
+        // 简单的离地检测
+        // isGrounded = false; // (可选：如果需要更精确的滞空判断)
     }
 
-    // 5. 更新动画计时器
+    // 6. 动画
     updateAnimation(dt);
 }
 // --- 辅助函数实现 ---
 
-glm::vec3 Steve::processMovementInput(GLFWwindow* window, float dt) {
-    // A. 计算前向向量
+// [修改] 这里的逻辑不再调用 glfwGetKey，而是读取 input 结构体
+glm::vec3 Steve::processMovement(const SteveInput& input, float dt) {
+    // A. 计算当前的前向向量
     glm::vec3 dirVector;
     dirVector.x = -sin(glm::radians(bodyYaw));
     dirVector.z = -cos(glm::radians(-bodyYaw));
     dirVector.y = 0.0f;
     front = glm::normalize(dirVector);
 
-    // B. 处理旋转 (A/D)
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+    // B. 处理旋转 (Input.moveDir.x 对应 A/D)
+    // input.moveDir.x: -1(左/A), 1(右/D) -> 注意这里我把定义稍微反转一下以符合直觉
+    // 之前: A -> bodyYaw += speed (向左转是增加角度?)
+    // 假设 input.moveDir.x = -1 (左), 1 (右)
+    if (abs(input.moveDir.x) > 0.1f) {
         state = SteveState::WALK;
-        bodyYaw += rotateSpeed * dt;
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        state = SteveState::WALK;
-        bodyYaw -= rotateSpeed * dt;
+        // 如果 x 是 -1 (按A)，我们需要 bodyYaw 增加
+        // 如果 x 是 1 (按D)，我们需要 bodyYaw 减少
+        bodyYaw -= input.moveDir.x * rotateSpeed * dt;
     }
 
-    // C. 计算目标速度 (W/S)
+    // C. 处理前后移动 (Input.moveDir.y 对应 W/S)
     glm::vec3 velocity(0.0f);
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) velocity += front;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) velocity -= front;
-
-    // 归一化并应用速度
-    if (glm::length(velocity) > 0.0f) {
+    if (abs(input.moveDir.y) > 0.1f) {
         state = SteveState::WALK;
+        // y = 1 (前), y = -1 (后)
+        velocity += front * input.moveDir.y;
+    }
+
+    if (glm::length(velocity) > 0.0f) {
         return glm::normalize(velocity) * moveSpeed * dt;
     }
-
     return glm::vec3(0.0f);
 }
 
@@ -183,20 +169,16 @@ void Steve::applyCollisionAndMove(glm::vec3 velocity, const std::vector<AABB>& o
     if (!collisionZ) position.z += velocity.z;
 }
 
-void Steve::processActions(GLFWwindow* window, float dt) {
-    // 头部控制 (Q/E)
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) headYaw += 100.0f * dt;
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) headYaw -= 100.0f * dt;
+void Steve::processActions(const SteveInput& input, float dt) {
+    // 头部
+    if (input.shakeHeadLeft) headYaw += 100.0f * dt;
+    if (input.shakeHeadRight) headYaw -= 100.0f * dt;
 
-    // 限制头部角度
     if (headYaw > 60.0f) headYaw = 60.0f;
     if (headYaw < -60.0f) headYaw = -60.0f;
 
-    // 手臂控制 (R)
-    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
-        isArmRaised = true;
-    else
-        isArmRaised = false;
+    // 手臂
+    isArmRaised = input.attack;
 }
 
 void Steve::updateAnimation(float dt) {

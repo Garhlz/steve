@@ -25,11 +25,18 @@ void Game::Init() {
     // 没有这一行，显卡里根本没有创建阴影贴图，Shader 读到的全是 0
     lightManager->initShadows();
     // 3. Camera
-    camera = std::make_shared<Camera>(glm::vec3(0.0f, 1.0f, 3.0f));
+    camera = std::make_shared<Camera>(glm::vec3(1.0f, 2.0f, 15.0f));
 
     // 4. Steve
     steve = std::make_shared<Steve>();
-    steve->init("cornelia");
+    steve->init("cornelia"); // 还是用原来的模型
+    steve->setPosition(glm::vec3(0.0f, 1.141f, 10.0f)); // 初始位置
+
+    alex = std::make_shared<Steve>();
+    alex->init("minecraft_girl"); // 加载新模型 (确保 assets/models/minecraft_girl/ 存在)
+    alex->setPosition(glm::vec3(2.0f, 1.141f, 10.0f)); // 站在旁边
+
+    currentCharacter = steve;
 
     // 5. Scene (初始化资源)
     scene = std::make_shared<Scene>();
@@ -40,7 +47,7 @@ void Game::Init() {
     scene->loadMap(lightManager);
 
     // 7. Controller
-    camController = std::make_shared<CameraController>(camera, steve);
+    camController = std::make_shared<CameraController>(camera, currentCharacter);
 
     // 8. UI
     uiManager = std::make_unique<UIManager>();
@@ -77,20 +84,69 @@ void Game::ProcessInput(float dt) {
         pressEsc = false;
     }
 
-    // 只有 ACTIVE 时处理输入
     if (State == GAME_ACTIVE) {
-        if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
-            if (!pressB) { lightManager->toggleDayNight(); pressB = true; }
-        } else { pressB = false; }
+        // [新增] 角色切换 (按 T 键)
+        if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+            if (!pressT) {
+                // 切换指针
+                if (currentCharacter == steve) {
+                    currentCharacter = alex;
+                } else {
+                    currentCharacter = steve;
+                }
+                // 通知相机切换目标
+                camController->setTarget(currentCharacter);
+                pressT = true;
+            }
+        } else {
+            pressT = false;
+        }
 
+        // B 键开关灯
+        if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+            if (!pressB) {
+                lightManager->toggleDayNight();
+                pressB = true;
+            }
+        } else {
+            pressB = false;
+        }
+        // Camera 自由移动模式下的 WASD ...
         camController->processKeyboard(window, dt);
     }
 }
 
 void Game::Update(float dt) {
     if (State == GAME_ACTIVE) {
-        bool steveInput = (camController->getMode() == CameraMode::THIRD_PERSON);
-        steve->update(dt, window, staticObstacles, steveInput);
+        // 1. 构造当前玩家的输入指令
+        SteveInput playerInput;
+
+        // 只有在第三人称模式下，玩家的键盘才控制角色
+        if (camController->getMode() == CameraMode::THIRD_PERSON) {
+            if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) playerInput.moveDir.y += 1.0f;
+            if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) playerInput.moveDir.y -= 1.0f;
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) playerInput.moveDir.x -= 1.0f; // 左转 (注意你在Steve.cpp里的实现逻辑)
+            if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) playerInput.moveDir.x += 1.0f; // 右转
+
+            if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) playerInput.jump = true;
+            if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) playerInput.attack = true;
+            if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) playerInput.shakeHeadLeft = true;
+            if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) playerInput.shakeHeadRight = true;
+        }
+
+        // 2. 更新所有角色
+        // -> 当前角色接收玩家输入
+        currentCharacter->update(dt, playerInput, staticObstacles);
+
+        // -> 另一个角色接收空输入 (Idle)，但依然受重力影响
+        SteveInput idleInput; // 默认全为 false/0
+        if (currentCharacter == steve) {
+            alex->update(dt, idleInput, staticObstacles);
+        } else {
+            steve->update(dt, idleInput, staticObstacles);
+        }
+
+        // 3. 更新相机
         camController->update(dt);
     }
 }
@@ -101,7 +157,7 @@ void Game::Render() {
     // =========================================================
 
     // [修改] 获取 Steve 的位置作为阴影中心
-    glm::vec3 centerPos = steve->getPosition();
+    glm::vec3 centerPos = currentCharacter->getPosition();
 
     // 计算跟随玩家的光照矩阵
     glm::mat4 lightProjectionView = lightManager->getLightSpaceMatrix(centerPos);
@@ -119,6 +175,7 @@ void Game::Render() {
     // 这里的 cull face 设置是为了防止彼得潘悬浮(Peter Panning)现象，可选
     glCullFace(GL_FRONT);
     steve->drawShadow(*depthShader);
+    alex->drawShadow(*depthShader);
     scene->drawShadow(*depthShader);
     glCullFace(GL_BACK);
 
@@ -158,6 +215,7 @@ void Game::Render() {
 
     // 3. 绘制物体 (使用修改后的 draw 接口，不再传 view/proj)
     steve->draw(*lightingShader);
+    alex->draw(*lightingShader);
     scene->draw(*lightingShader, view, projection, lightManager.get());
 
     // 4. UI 绘制

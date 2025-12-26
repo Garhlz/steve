@@ -39,6 +39,12 @@ int main()
     }
     glfwMakeContextCurrent(window);
 
+    // [新增] 开启垂直同步 (V-Sync)
+    // 0 = 不限制 (400 FPS+)
+    // 1 = 锁定为屏幕刷新率 (通常 60 FPS)
+    // 2 = 锁定为刷新率的一半 (30 FPS)
+    glfwSwapInterval(1);
+
     // --- 注册回调函数 ---
     glfwSetFramebufferSizeCallback(window, onWindowResize);
     glfwSetCursorPosCallback(window, onMouseMove);

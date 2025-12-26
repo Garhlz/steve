@@ -96,6 +96,7 @@ cd ..
 ```bash
 cmake --build . --config Release
 ```
+
 ./vcpkg install stb 
 ./vcpkg install assimp
 ./vcpkg install "imgui[core,glfw-binding,opengl3-binding]" --recurse

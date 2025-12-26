@@ -86,7 +86,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     float currentDepth = projCoords.z;
 
     // 4. 阴影偏移 (Shadow Bias) - 解决“阴影痤疮” (Shadow Acne)
-    float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
+//    float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0005);
+    float bias = max(0.015 * (1.0 - dot(normal, lightDir)), 0.0015);
 
     // 5. PCF (Percentage-closer filtering) - 软阴影
     // 采样周围 3x3 个像素平均一下

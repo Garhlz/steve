@@ -52,6 +52,9 @@ private:
     std::shared_ptr<Shader> lightingShader;
     std::shared_ptr<Camera> camera;
     std::shared_ptr<Steve> steve;
+    std::shared_ptr<Steve> alex;  // 新角色 (minecraft_girl)
+    std::shared_ptr<Steve> currentCharacter;
+
     std::shared_ptr<Scene> scene;
     std::shared_ptr<LightManager> lightManager;
     std::shared_ptr<CameraController> camController;
@@ -63,6 +66,8 @@ private:
 
     std::vector<AABB> staticObstacles;
     bool pressB;
+
+    bool pressT; // 用于防抖动切换角色
 };
 
 #endif
