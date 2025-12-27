@@ -2,6 +2,10 @@
 .vscode/
 
 clion_build/
+release/
+cmake-build-steve_release/
+
+imgui.ini
 
 **/tree.txt
 **/repomix-output.xml

@@ -6,8 +6,13 @@
 // --- 全局变量 ---
 Game* steveGame = nullptr;
 
+// 1600x900 (16:9)
 constexpr unsigned int SCR_WIDTH = 1600;
-constexpr unsigned int SCR_HEIGHT = 1200;
+constexpr unsigned int SCR_HEIGHT = 900;
+
+// 或者 1280x720
+// constexpr unsigned int SCR_WIDTH = 1280;
+// constexpr unsigned int SCR_HEIGHT = 720;
 
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
@@ -31,7 +36,7 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Steve's Adventure - Elaine", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "2023271073_华浩名_期末大作业", nullptr, nullptr);
     if (window == nullptr) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();

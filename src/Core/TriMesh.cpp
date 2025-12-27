@@ -23,7 +23,9 @@ TriMesh::~TriMesh() {
 // ==========================================================
 void TriMesh::readObjTiny(const std::string &filename)
 {
+#ifndef NDEBUG
     std::cout << "[TinyObj] Loading: " << filename << std::endl;
+#endif
 
     cleanData();
     std::string directory = filename.substr(0, filename.find_last_of('/'));
@@ -171,10 +173,10 @@ void TriMesh::readObjTiny(const std::string &filename)
         whiteTex.path = "internal_white";
         textures.push_back(whiteTex);
     }
-
+#ifndef NDEBUG
     std::cout << "Loaded Model: " << filename << " | Shapes: " << shapes.size()
               << " | Textures: " << textures.size() << std::endl;
-
+#endif
     // AABB Debug Log 保持不变...
 
     // 提交 GPU
@@ -268,7 +270,9 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
 
     // 标准文件加载逻辑
     std::string filename = directory + '/' + path;
+#ifndef NDEBUG
     std::cout << "[Texture Debug] Trying to load: " << filename << std::endl;
+#endif
     int width, height, nrComponents;
 
     // 确保 stb_image 加载时翻转 Y 轴，否则贴图是倒的

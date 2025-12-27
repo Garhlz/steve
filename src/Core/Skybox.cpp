@@ -77,7 +77,9 @@ void Skybox::init() {
         "assets/textures/skybox/day/pz.png",
         "assets/textures/skybox/day/nz.png"
     };
+#ifndef NDEBUG
     std::cout << "[Skybox] Loading Day Texture..." << std::endl;
+#endif
     dayTextureID = loadCubemap(dayFaces);
 
     std::vector<std::string> nightFaces {
@@ -88,7 +90,9 @@ void Skybox::init() {
         "assets/textures/skybox/night/pz.png",
         "assets/textures/skybox/night/nz.png"
     };
+#ifndef NDEBUG
     std::cout << "[Skybox] Loading Night Texture ..." << std::endl;
+#endif
     nightTextureID = loadCubemap(nightFaces);
     
     // 配置 shader 纹理单元
