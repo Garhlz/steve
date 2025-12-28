@@ -7,7 +7,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-// 前向声明，告诉编译器 "Game" 是个类，具体细节在 .cpp 里看
 class Game;
 
 class UIManager {
@@ -25,12 +24,12 @@ private:
     // 内部状态：是否显示按键说明
     bool showControls;
 
-    // 辅助函数：绘制具体的子菜单
+    // 绘制具体的子菜单
     void RenderMainMenu(Game& game);
     void RenderPauseMenu(Game& game);
     void RenderHUD(Game& game);
 
-    // 辅助函数：绘制按键列表 (复用逻辑)
+    // 绘制按键列表 (复用逻辑)
     void RenderControlsList();
 };
 

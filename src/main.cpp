@@ -108,8 +108,7 @@ int main()
     return 0;
 }
 
-// --- [修正] 回调函数实现 ---
-
+// --- 回调函数实现 ---
 void onWindowResize(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);

@@ -49,16 +49,15 @@ AABB Steve::getBoundingBox() const {
     return AABB(position, glm::vec3(w, h, w));
 }
 
-// [核心修改] Update
 void Steve::update(float dt, const SteveInput& input,
                    const std::vector<AABB>& obstacles,
                    AABB otherPlayerBox) {
     state = SteveState::IDLE;
 
-    // 1. 处理移动 (基于 Input)
+    // 1. 处理移动
     glm::vec3 velocity = processMovement(input, dt);
 
-    // 2. 处理跳跃 (基于 Input)
+    // 2. 处理跳跃
     if (input.jump && isGrounded) {
         verticalVelocity = jumpForce;
         isGrounded = false;
@@ -79,35 +78,32 @@ void Steve::update(float dt, const SteveInput& input,
         isGrounded = true;
     } else if (position.y > groundLevel + 0.001f) {
         // 简单的离地检测
-        // isGrounded = false; // (可选：如果需要更精确的滞空判断)
+        // isGrounded = false; // (如果需要更精确的滞空判断)
     }
 
     // 6. 动画
     updateAnimation(dt);
 }
-// --- 辅助函数实现 ---
 
-// 这里的逻辑不再调用 glfwGetKey，而是读取 input 结构体
+// --- 辅助函数实现 ---
+// 直接读取 input 结构体
 glm::vec3 Steve::processMovement(const SteveInput& input, float dt) {
-    // A. 计算当前的前向向量
+    // 1. 计算当前的前向向量
     glm::vec3 dirVector;
     dirVector.x = -sin(glm::radians(bodyYaw));
     dirVector.z = -cos(glm::radians(-bodyYaw));
     dirVector.y = 0.0f;
     front = glm::normalize(dirVector);
 
-    // B. 处理旋转 (Input.moveDir.x 对应 A/D)
-    // input.moveDir.x: -1(左/A), 1(右/D) -> 注意这里我把定义稍微反转一下以符合直觉
-    // 之前: A -> bodyYaw += speed (向左转是增加角度?)
-    // 假设 input.moveDir.x = -1 (左), 1 (右)
+    // 2. 处理旋转 (Input.moveDir.x 对应 A/D)
     if (abs(input.moveDir.x) > 0.1f) {
         state = SteveState::WALK;
-        // 如果 x 是 -1 (按A)，我们需要 bodyYaw 增加
-        // 如果 x 是 1 (按D)，我们需要 bodyYaw 减少
+        // 如果 x 是 -1 (按A)， bodyYaw 增加
+        // 如果 x 是 1 (按D)， bodyYaw 减少
         bodyYaw -= input.moveDir.x * rotateSpeed * dt;
     }
 
-    // C. 处理前后移动 (Input.moveDir.y 对应 W/S)
+    // 3. 处理前后移动 (Input.moveDir.y 对应 W/S)
     glm::vec3 velocity(0.0f);
     if (abs(input.moveDir.y) > 0.1f) {
         state = SteveState::WALK;
@@ -121,7 +117,7 @@ glm::vec3 Steve::processMovement(const SteveInput& input, float dt) {
     return glm::vec3(0.0f);
 }
 
-// [核心修改] 碰撞检测逻辑
+// 碰撞检测逻辑
 void Steve::applyCollisionAndMove(glm::vec3 velocity,
                                   const std::vector<AABB>& obstacles,
                                   AABB otherPlayerBox)
@@ -132,7 +128,7 @@ void Steve::applyCollisionAndMove(glm::vec3 velocity,
     float characterWidth = 0.6f;
     glm::vec3 currentCenter = position;
 
-    // ================= X 轴检测 =================
+    // X 轴检测
     glm::vec3 nextPosX = currentCenter;
     nextPosX.x += velocity.x;
     AABB nextBoxX(nextPosX, glm::vec3(characterWidth, characterHeight, characterWidth));
@@ -152,8 +148,6 @@ void Steve::applyCollisionAndMove(glm::vec3 velocity,
 
     // 2. 检查另一个玩家
     if (!collisionX) {
-        // 只有当另一个玩家碰撞盒有效(非空)时才检查
-        // 简单判断：如果两个人都站在原点重叠，或者正常移动
         if (nextBoxX.checkCollision(otherPlayerBox)) {
             collisionX = true;
         }
@@ -162,13 +156,9 @@ void Steve::applyCollisionAndMove(glm::vec3 velocity,
     if (!collisionX) position.x += velocity.x;
 
 
-    // ================= Z 轴检测 =================
-    glm::vec3 nextPosZ = currentCenter; // 注意：这里用 currentCenter 还是 position 都可以，因为上面已经更新过 position.x 了
-    // 但为了标准的 AABB 扫掠，通常建议分开算。
-    // 这里因为你上面直接修改了 position.x，所以用 position 即可，或者重新构造一个包含新X旧Z的向量。
-    // 你的原代码用的是 currentCenter (旧X)，这会导致斜向移动卡墙角。
-    // 更好的做法是：
-    glm::vec3 posWithNewX = position; // 此时 position.x 已经可能更新了
+    // Z 轴检测
+    // glm::vec3 nextPosZ = currentCenter;
+    glm::vec3 posWithNewX = position;
     posWithNewX.z += velocity.z;
 
     AABB nextBoxZ(posWithNewX, glm::vec3(characterWidth, characterHeight, characterWidth));
@@ -218,7 +208,7 @@ void Steve::updateAnimation(float dt) {
 
     // 2. 挥剑动画
     if (isArmRaised) {
-        // 15.0f 是挥剑速度，你可以调得更快或更慢
+        // 挥剑速度
         swingTime += dt * 16.0f;
     } else {
         // 松开时重置，让手臂回到默认位置
@@ -228,14 +218,10 @@ void Steve::updateAnimation(float dt) {
 
 void Steve::draw(Shader& shader) {
 
-    // ===========================================
     // 1. 动画参数计算
-    // ===========================================
-
     // 基础行走摆动 (基于 walkTime)
     float swingAngle = 0.0f;
     if (state == SteveState::WALK) {
-        // * 2.0f 是为了让摆动频率快一点，看起来更有活力
         swingAngle = sin(walkTime * moveSpeed * 2.0f) * swingRange;
     }
 
@@ -243,19 +229,11 @@ void Steve::draw(Shader& shader) {
     float rightArmTargetAngle = swingAngle;
 
     if (isArmRaised) {
-        // [挥剑逻辑]
-        // 基础姿态：-90度 (抬平)
-        // 动态叠加：正弦波 (sin(swingTime) * 45度)
-        // 结果：手臂会在 "高举(-135度)" 和 "劈下(-45度)" 之间快速往复
+        // 挥剑：手臂会在高举和劈下之间快速往复
         rightArmTargetAngle = -65.0f + sin(swingTime) * 40.0f;
     }
 
-    // ===========================================
     // 2. 基础模型矩阵 (Root: 身体中心)
-    // ===========================================
-   // ===========================================
-    // 2. 基础模型矩阵
-    // ===========================================
     auto model = glm::mat4(1.0f);
     model = glm::translate(model, position);
     model = glm::rotate(model, glm::radians(bodyYaw), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -271,7 +249,6 @@ void Steve::draw(Shader& shader) {
     glm::mat4 headModel = model;
     headModel = glm::translate(headModel, glm::vec3(0.0f, 0.37f, 0.0f));
     headModel = glm::rotate(headModel, glm::radians(headYaw), glm::vec3(0.0f, 1.0f, 0.0f));
-    // 只传 ID 和 Model
     head->draw(shader.ID, headModel);
 
     // [Level 2] 右大臂
@@ -280,7 +257,6 @@ void Steve::draw(Shader& shader) {
     rightUpperModel = glm::rotate(rightUpperModel, glm::radians(rightArmTargetAngle), armRotateAxis);
 
     glm::mat4 upperDrawModel = glm::scale(rightUpperModel, glm::vec3(1.0f, 0.5f, 1.0f));
-    // 只传 ID 和 Model
     rightArm->draw(shader.ID, upperDrawModel);
 
     // [Level 3] 右小臂
@@ -293,7 +269,6 @@ void Steve::draw(Shader& shader) {
     rightLowerModel = glm::rotate(rightLowerModel, glm::radians(elbowBend), armRotateAxis);
 
     glm::mat4 lowerDrawModel = glm::scale(rightLowerModel, glm::vec3(1.0f, 0.5f, 1.0f));
-    // 只传 ID 和 Model
     rightArm->draw(shader.ID, lowerDrawModel);
 
     // [Level 4] 钻石剑
@@ -304,11 +279,9 @@ void Steve::draw(Shader& shader) {
     if (isArmRaised) swordModel = glm::rotate(swordModel, glm::radians(45.0f), armRotateAxis);
     swordModel = glm::translate(swordModel, glm::vec3(0.0f, 0.35f, 0.0f));
     swordModel = glm::scale(swordModel, glm::vec3(1.5f));
-    // 只传 ID 和 Model
     sword->draw(shader.ID, swordModel);
 
     // 其他肢体
-    // drawLimb 内部实现也需要改，去掉 view/proj
     drawLimb(leftArm, shader, model, glm::vec3(-0.375f, 0.375f, 0.0f), swingAngle, standardAxis);
     drawLimb(leftLeg, shader, model, glm::vec3(-0.125f, -0.375f, 0.0f), -swingAngle, standardAxis);
     drawLimb(rightLeg, shader, model, glm::vec3(0.125f, -0.375f, 0.0f), swingAngle, standardAxis);
@@ -363,8 +336,7 @@ void Steve::drawShadow(Shader& shader) {
     swordModel = glm::scale(swordModel, glm::vec3(1.5f));
     sword->drawGeometry(shader.ID, swordModel);
 
-    // 其他肢体 (因为 drawLimb 现在调用 draw，我们需要一个专门用于 shadow 的 limb helper，或者手动展开)
-    // 这里为了简单，手动展开 drawGeometry 调用
+    // 其他肢体。手动展开 drawGeometry 调用
     auto drawLimbShadow = [&](std::shared_ptr<TriMesh> mesh, glm::vec3 offset, float angle) {
         glm::mat4 m = model;
         m = glm::translate(m, offset);
@@ -377,8 +349,7 @@ void Steve::drawShadow(Shader& shader) {
     drawLimbShadow(rightLeg, glm::vec3(0.125f, -0.375f, 0.0f), swingAngle);
 }
 
-// 辅助函数实现
-// 辅助函数 drawLimb (移除 view, proj)
+// 辅助函数
 void Steve::drawLimb(const std::shared_ptr<TriMesh>& mesh, Shader& shader,
                      glm::mat4 parentModel, glm::vec3 offset, float angle,
                      glm::vec3 rotateAxis)

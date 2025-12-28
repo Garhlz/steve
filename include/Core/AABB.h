@@ -18,7 +18,7 @@ struct AABB {
     AABB() : min(0.0f), max(0.0f) {}
 
     // 检测两个 AABB 是否重叠
-    // 原理：如果在 X、Y、Z 三个轴上都重叠，则物体相撞
+    // 如果在 X、Y、Z 三个轴上都重叠，则物体相撞
     bool checkCollision(const AABB& other) const {
         bool collisionX = max.x >= other.min.x && other.max.x >= min.x;
         bool collisionY = max.y >= other.min.y && other.max.y >= min.y;

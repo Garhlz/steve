@@ -21,24 +21,20 @@ void Game::Init() {
     // 2. LightManager
     lightManager = std::make_shared<LightManager>();
     lightManager->init();
-    // [!!! 必须添加这一行 !!!]
-    // 没有这一行，显卡里根本没有创建阴影贴图，Shader 读到的全是 0
     lightManager->initShadows();
 
-    // Camera 保持在后面
-    camera = std::make_shared<Camera>(glm::vec3(0.0f, 3.0f, 18.0f)); // 稍微抬高一点视角，看得更清楚
-
+    // 3. Camera
+    camera = std::make_shared<Camera>(glm::vec3(0.0f, 3.0f, 18.0f));
     camera->MovementSpeed = 7.0f;
 
     // 4. Steve & Alex 出生点
-    // 让他们站在“空地”的边缘，面对足球
     steve = std::make_shared<Steve>();
     steve->init("cornelia");
-    steve->setPosition(glm::vec3(-2.0f, 1.141f, 8.0f)); // 左边一点
+    steve->setPosition(glm::vec3(-2.0f, 1.141f, 8.0f));
 
     alex = std::make_shared<Steve>();
     alex->init("minecraft_girl");
-    alex->setPosition(glm::vec3(2.0f, 1.141f, 8.0f));   // 右边一点
+    alex->setPosition(glm::vec3(2.0f, 1.141f, 8.0f));
 
     currentCharacter = steve;
 
@@ -47,7 +43,7 @@ void Game::Init() {
     scene->init();
 
     // 6. 加载地图 (生成物体和碰撞盒)
-    // 以后这里可以改成 scene->loadMap("level1.txt");
+    // 以后可以改成 scene->loadMap("level1.txt");
     scene->loadMap(lightManager);
 
     // 7. Controller
@@ -57,8 +53,7 @@ void Game::Init() {
     uiManager = std::make_unique<UIManager>();
     uiManager->Init(window);
 
-    // 9. 获取碰撞数据
-    // Game 不再自己算碰撞盒，直接问 Scene 要
+    // 9. 获取碰撞数据。Game 不再自己算碰撞盒，问 Scene 要
     staticObstacles = scene->getObstacles();
 
     std::cout << "Game Init Complete." << std::endl;
@@ -141,7 +136,7 @@ void Game::Update(float dt) {
         if (camController->getMode() == CameraMode::THIRD_PERSON) {
             if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) playerInput.moveDir.y += 1.0f;
             if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) playerInput.moveDir.y -= 1.0f;
-            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) playerInput.moveDir.x -= 1.0f; // 左转 (注意你在Steve.cpp里的实现逻辑)
+            if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) playerInput.moveDir.x -= 1.0f; // 左转
             if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) playerInput.moveDir.x += 1.0f; // 右转
 
             if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) playerInput.jump = true;
@@ -158,25 +153,20 @@ void Game::Update(float dt) {
         AABB steveBox = steve->getBoundingBox();
         AABB alexBox = alex->getBoundingBox();
 
-        // -------------------------------------------------
         // 更新当前操控的角色
-        // -------------------------------------------------
         // 如果当前是 steve，就把 alexBox 传给它作为障碍
         // 如果当前是 alex，就把 steveBox 传给它
         AABB currentObstaclePlayer = (currentCharacter == steve) ? alexBox : steveBox;
 
         currentCharacter->update(dt, playerInput, staticObstacles, currentObstaclePlayer);
 
-
-        // -------------------------------------------------
-        // 更新另一个角色 (AI / Idle)
-        // -------------------------------------------------
+        // 更新另一个角色
         SteveInput idleInput;
         SteveInput aiInput;
         std::shared_ptr<Steve> otherCharacter = (currentCharacter == steve) ? alex : steve;
 
         // 另一个角色的障碍物，就是“我现在操控的角色”
-        // 注意：这里用 getBoundingBox() 重新获取一下，因为 currentCharacter 刚刚可能移动了位置
+        // 用 getBoundingBox() 重新获取一下，因为 currentCharacter 刚刚可能移动了位置
         AABB otherObstaclePlayer = currentCharacter->getBoundingBox();
 
         if (isFollowing) {
@@ -193,10 +183,7 @@ void Game::Update(float dt) {
 }
 
 void Game::Render() {
-    // =========================================================
     // Pass 1: Shadow Map Generation (阴影生成阶段)
-    // =========================================================
-
     // 获取 Steve 的位置作为阴影中心
     glm::vec3 centerPos = currentCharacter->getPosition();
 
@@ -222,10 +209,7 @@ void Game::Render() {
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // =========================================================
     // Pass 2: Normal Rendering (正常渲染阶段)
-    // =========================================================
-
     // 1. 重置视口和缓冲
     glViewport(0, 0, Width, Height);
     // 这里的 ClearColor 使用 SkyColor

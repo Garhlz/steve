@@ -16,7 +16,7 @@ class CameraController {
 public:
     CameraController(std::shared_ptr<Camera> cam, std::shared_ptr<Steve> initialTarget);
 
-    // [新增] 切换目标的方法
+    // 切换目标的方法
     void setTarget(std::shared_ptr<Steve> newTarget);
     // 每帧调用：根据模式更新相机位置
     void update(float dt);

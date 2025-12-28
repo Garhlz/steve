@@ -14,7 +14,7 @@
 #include "Game/LightManager.h"
 #include "Game/CameraController.h"
 
-// [新增] 引入 UIManager (前向声明即可，不需要包含头文件)
+// 引入 UIManager (前向声明即可，不需要包含头文件)
 class UIManager;
 
 enum GameState {
@@ -41,7 +41,7 @@ public:
     void HandleScroll(float yoffset);
 
     void SetWindow(GLFWwindow* window) { this->window = window; }
-    // [新增] 提供给 UIManager 使用，用于关闭游戏
+    // 提供给 UIManager 使用，用于关闭游戏
     GLFWwindow* GetWindow() const { return window; }
 
     void SetMouseMode(bool capture);
@@ -70,7 +70,7 @@ private:
 
     bool pressF = false;      // F 键防抖
 
-    // [新增] 辅助函数：计算 AI 的输入指令
+    // 辅助函数：计算 AI 的输入指令
     // 输入：追逐者(follower)，目标(target)
     // 输出：模拟的按键输入
     SteveInput calculateFollowInput(std::shared_ptr<Steve> follower, std::shared_ptr<Steve> target);

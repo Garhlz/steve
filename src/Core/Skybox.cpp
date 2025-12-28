@@ -102,8 +102,8 @@ void Skybox::init() {
 
 void Skybox::draw(const glm::mat4& view, const glm::mat4& projection, bool isNight) {
     // 1. 改变深度测试函数
-    // 默认是 GL_LESS，我们要用 GL_LEQUAL，因为我们在 Shader 里把深度强制设为了 1.0
-    // 这样天空盒就会画在所有物体的“后面”
+    // 用 GL_LEQUAL，因为在 Shader 里把深度强制设为了 1.0
+    // 这样天空盒就会画在所有物体的后面
     glDepthFunc(GL_LEQUAL);
     
     skyboxShader->use();
@@ -115,7 +115,7 @@ void Skybox::draw(const glm::mat4& view, const glm::mat4& projection, bool isNig
     skyboxShader->setMat4("view", viewNoTrans);
     skyboxShader->setMat4("projection", projection);
 
-    // [新增] 控制亮度
+    // 控制亮度
     if (isNight) {
         // 夜晚：把贴图压暗到 20% ~ 40%
         skyboxShader->setFloat("intensity", 0.6f);

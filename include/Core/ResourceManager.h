@@ -19,11 +19,10 @@ public:
     ResourceManager(const ResourceManager&) = delete;
     void operator=(const ResourceManager&) = delete;
 
-    // 核心接口：获取模型
-    // 如果缓存里有，直接返回；如果没有，加载后放入缓存再返回
+    // 获取模型。如果缓存里有，直接返回；如果没有，加载后放入缓存再返回
     std::shared_ptr<TriMesh> getMesh(const std::string& path);
 
-    // 清理所有资源 (通常在游戏结束时调用，或者智能指针自动释放)
+    // 清理所有资源 (在游戏结束时调用，或者智能指针自动释放)
     void clear();
 
 private:

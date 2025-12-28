@@ -4,6 +4,7 @@
 clion_build/
 release/
 cmake-build-steve_release/
+build/
 
 imgui.ini
 

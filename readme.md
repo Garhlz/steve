@@ -199,15 +199,24 @@ Linux / macOS
 安装完成后，在 CMake 构建时指定 vcpkg 的工具链文件即可：
 ```Bash
 # 假设 vcpkg 安装在用户根目录
-cmake .. -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake .. -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake 
 ```
 
 4. 打包
-```PowerShell
-mkdir build
-cd build
+```bash
+mkdir release
+cd release
 
-# 指定 vcpkg 工具链 (路径根据你实际安装位置修改)
+cmake .. -DCMAKE_TOOLCHAIN_FILE=~/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+
+cmake --build . --config Release
+```
+
+```PowerShell
+mkdir release
+cd release
+
+# 指定 vcpkg 工具链
 cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release
 
 # 编译

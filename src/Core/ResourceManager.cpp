@@ -6,7 +6,7 @@ std::shared_ptr<TriMesh> ResourceManager::getMesh(const std::string& path) {
     if (it != meshes.end()) {
 #ifndef NDEBUG
         std::cout << "[Resource] Cache Hit: " << path << std::endl;
-#endif/**/
+#endif
         return it->second;
     }
 

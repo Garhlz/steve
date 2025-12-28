@@ -6,7 +6,8 @@
 #include "Core/Shader.h"
 
 // 对应 Shader 中的 DirLight
-struct DirLight {
+struct DirLight
+{
     glm::vec3 direction;
     glm::vec3 ambient;
     glm::vec3 diffuse;
@@ -14,9 +15,10 @@ struct DirLight {
 };
 
 // 对应 Shader 中的 PointLight
-struct PointLight {
+struct PointLight
+{
     glm::vec3 position;
-    
+
     // 衰减系数
     float constant;
     float linear;
@@ -26,54 +28,56 @@ struct PointLight {
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    // [新增] 用于记忆路灯的原始颜色/强度
+    // 用于记忆路灯的原始颜色/强度
     glm::vec3 baseColor;
 };
 
-// [新增] 天体渲染配置
-struct CelestialConfig {
-    bool visible;           // 是否可见
-    float scale;            // 大小
-    float distance;         // 距离
-    glm::vec3 direction;    // 方向 (位置 = -direction * distance)
+// 天体渲染配置
+struct CelestialConfig
+{
+    bool visible;        // 是否可见
+    float scale;         // 大小
+    float distance;      // 距离
+    glm::vec3 direction; // 方向 (位置 = -direction * distance)
 
     // 渲染时的临时光照参数 (用来模拟发光)
     glm::vec3 emissionAmbient;
     glm::vec3 emissionDiffuse;
 };
 
-class LightManager {
+class LightManager
+{
 public:
     LightManager();
-    
+
     // 初始化：设置默认的灯光位置
     void init();
 
     // 核心功能：将光照数据传给 Shader
-    void apply(Shader& shader);
+    void apply(Shader &shader);
 
     // 切换白天/黑夜
     void toggleDayNight();
-    
+
     // 获取当前天空颜色 (用于 main 中设置 glClearColor)
     glm::vec3 getSkyColor() const { return currentSkyColor; }
 
     bool isNightMode() const { return isNight; }
 
-    const std::vector<PointLight>& getStreetLamps() const { return streetLamps; }
+    const std::vector<PointLight> &getStreetLamps() const { return streetLamps; }
 
     glm::vec3 getSunDirection() const { return sun.direction; }
 
-    // [新增] 初始化阴影贴图 (FBO)
+    // 初始化阴影贴图 (FBO)
     void initShadows();
 
-    // [新增] 获取阴影相关的 ID 和 尺寸
+    // 获取阴影相关的 ID 和 尺寸
     unsigned int getShadowMap() const { return depthMap; }
     unsigned int getShadowFBO() const { return depthMapFBO; }
     unsigned int getShadowWidth() const { return SHADOW_WIDTH; }
     unsigned int getShadowHeight() const { return SHADOW_HEIGHT; }
 
-    // [修改] 接收中心点位置（通常是玩家位置）
+    // 接收中心点位置（通常是玩家位置）
     glm::mat4 getLightSpaceMatrix(glm::vec3 centerPos) const;
 
     void setLampPosition(int index, glm::vec3 pos);
@@ -90,8 +94,9 @@ public:
     // 设置黑夜参数
     void setNight();
 
-    const CelestialConfig& getSunConfig() const { return sunConfig; }
-    const CelestialConfig& getMoonConfig() const { return moonConfig; }
+    const CelestialConfig &getSunConfig() const { return sunConfig; }
+    const CelestialConfig &getMoonConfig() const { return moonConfig; }
+
 private:
     bool isNight;
     glm::vec3 currentSkyColor{};

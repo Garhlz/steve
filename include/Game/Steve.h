@@ -37,8 +37,8 @@ public:
 
     void init(const std::string& characterName);
 
-    // [核心修改] update 不再接收 window，而是接收 input 结构体
-    // 这样无论是 玩家控制 还是 AI控制，只需要构造这个结构体传进去即可
+    // update 不再接收 window，而是接收 input 结构体
+    // 这样无论是玩家控制还是AI控制，只需要构造这个结构体传进去即可
     void update(float dt, const SteveInput& input, const std::vector<AABB>& obstacles,AABB otherPlayerBox);
 
     void draw(Shader& shader);
@@ -90,8 +90,8 @@ private:
     float jumpForce;        // 跳跃瞬间的向上速度 (建议 8.0f ~ 12.0f)
     bool isGrounded;        // 是否在地面上
 
-    // 地面高度 (假设平地是 Y=0，如果你的模型中心在腰部，这里可能需要是 0.9f)
-    // 根据你之前的代码，初始 Y 是 1.141f，我们暂定这就是“地面上的平衡高度”
+
+    // 初始 Y 是 1.141f，这就是“地面上的平衡高度”
     float groundLevel;
 
     // 辅助绘制函数

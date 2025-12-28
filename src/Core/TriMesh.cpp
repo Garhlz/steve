@@ -1,8 +1,5 @@
 ﻿#include "Core/TriMesh.h"
 #include <iostream>
-
-// 确保只在一个文件中定义 STB_IMAGE_IMPLEMENTATION
-// 如果你还有其他文件用了 stb_image，请去掉这里的 define，确保全局只有一处
 #ifndef STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -18,9 +15,7 @@ TriMesh::~TriMesh() {
     if (vbo) glDeleteBuffers(1, &vbo);
 }
 
-// ==========================================================
 // 核心函数：自适应读取 (融合贴图模型与纯色模型)
-// ==========================================================
 void TriMesh::readObjTiny(const std::string &filename)
 {
 #ifndef NDEBUG
@@ -32,7 +27,7 @@ void TriMesh::readObjTiny(const std::string &filename)
 
     // 1. 初始化 Loader
     tinyobj::ObjReaderConfig reader_config;
-    reader_config.mtl_search_path = directory; // 告诉它去哪里找 .mtl 文件
+    reader_config.mtl_search_path = directory;
 
     tinyobj::ObjReader reader;
     if (!reader.ParseFromFile(filename, reader_config)) {
@@ -55,7 +50,7 @@ void TriMesh::readObjTiny(const std::string &filename)
     maxBound = glm::vec3(-1e9f);
 
     // 2. 预加载所有材质贴图 (模仿 Assimp 逻辑)
-    // TinyObj 的材质列表是全局的，我们可以先遍历一遍加载贴图
+    // TinyObj 的材质列表是全局的，先遍历一遍加载贴图
     for (const auto& mat : materials) {
         // 辅助 lambda: 加载并去重
         auto loadMap = [&](std::string texPath, std::string typeName) {
@@ -65,7 +60,7 @@ void TriMesh::readObjTiny(const std::string &filename)
             for(const auto& t : textures) if(t.path == texPath) return;
 
             Texture tex;
-            tex.id = loadTexture(texPath, directory); // 复用你现有的 loadTexture
+            tex.id = loadTexture(texPath, directory); // 复用 loadTexture
             tex.type = typeName;
             tex.path = texPath;
             textures.push_back(tex);
@@ -73,7 +68,7 @@ void TriMesh::readObjTiny(const std::string &filename)
 
         loadMap(mat.diffuse_texname, "texture_diffuse");
         loadMap(mat.specular_texname, "texture_specular");
-        // 如果 .mtl 里有 bump 贴图，也可以加载：
+        // 如果 .mtl 里有 bump 贴图需要加载（我放弃了）
         // loadMap(mat.bump_texname, "texture_normal");
     }
 
@@ -142,13 +137,11 @@ void TriMesh::readObjTiny(const std::string &filename)
 
                 // --- 切线 (Tangent) ---
                 // TinyObj 不会自动计算切线。
-                // 如果你之前放弃了 Normal Map，这里给个默认值即可
-                // 如果以后需要，得手动写算法计算 (MikkTSpace)
-                // vertex_tangents.emplace_back(glm::vec3(1.0f, 0.0f, 0.0f));
+                // 我放弃了 Normal Map，这里只给个默认值...
             }
 
             // --- 构建面索引 (Faces) ---
-            // 因为我们是把所有顶点按顺序 push 进去的 (Flatten)，所以索引就是线性的
+            // 因为是把所有顶点按顺序 push 进去的，所以索引是线性的
             faces.emplace_back(
                 baseIndex + 0,
                 baseIndex + 1,
@@ -160,7 +153,7 @@ void TriMesh::readObjTiny(const std::string &filename)
         }
     }
 
-    // 4. 兜底策略：白图 (完全复用之前的逻辑)
+    // 4. 兜底策略：白图
     bool hasDiffuse = false;
     for(const auto& t : textures) {
         if(t.type == "texture_diffuse") hasDiffuse = true;
@@ -177,14 +170,11 @@ void TriMesh::readObjTiny(const std::string &filename)
     std::cout << "Loaded Model: " << filename << " | Shapes: " << shapes.size()
               << " | Textures: " << textures.size() << std::endl;
 #endif
-    // AABB Debug Log 保持不变...
-
     // 提交 GPU
     storeFacesPoints();
 }
-// ==========================================================
+
 // 展平数据传给 GPU (适配 Layout 0,1,2,3)
-// ==========================================================
 void TriMesh::storeFacesPoints()
 {
     // 将索引数据展平
@@ -245,22 +235,20 @@ void TriMesh::storeFacesPoints()
     glEnableVertexAttribArray(3);
 }
 
-// ==========================================================
 // 纹理加载 (含默认白图生成)
-// ==========================================================
 unsigned int TriMesh::loadTexture(const std::string &path, const std::string &directory)
 {
     unsigned int textureID;
     glGenTextures(1, &textureID);
 
-    // [新增逻辑] 特殊标记：生成 1x1 白色纹理
+    // 特殊标记：生成 1x1 白色纹理
     // 用于给没有贴图的模型（如钻石剑）提供默认颜色乘数
     if (path == "internal_white") {
         unsigned char white[] = {255, 255, 255, 255}; // RGBA
         glBindTexture(GL_TEXTURE_2D, textureID);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
 
-        // 必须设置过滤参数，否则纹理可能无法采样
+        // 设置过滤参数，否则纹理可能无法采样
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -274,9 +262,7 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
     std::cout << "[Texture Debug] Trying to load: " << filename << std::endl;
 #endif
     int width, height, nrComponents;
-
-    // 确保 stb_image 加载时翻转 Y 轴，否则贴图是倒的
-    // stbi_set_flip_vertically_on_load(true); // 如果你之前没加这句，建议加上
+    // stbi_set_flip_vertically_on_load(true);
 
     unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
     if (data)
@@ -296,8 +282,8 @@ unsigned int TriMesh::loadTexture(const std::string &path, const std::string &di
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-        // [关键] Minecraft 风格推荐使用 GL_NEAREST (邻近采样) 保持像素颗粒感
-        // 如果想要平滑效果，保留 GL_LINEAR_MIPMAP_LINEAR
+        // Minecraft 风格使用 GL_NEAREST (邻近采样) 保持像素颗粒感
+        // 如果要平滑效果则使用 GL_LINEAR_MIPMAP_LINEAR
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -325,9 +311,6 @@ void TriMesh::drawGeometry(GLuint program, const glm::mat4 &model) {
 // 标准绘制：适用于主渲染阶段 (已解耦 View/Proj)
 void TriMesh::draw(GLuint program, const glm::mat4 &model)
 {
-    // 这里不再调用 glUseProgram(program)，假设外部已经 Use 了
-    // 也不再传 View 和 Projection，假设外部已经传了全局 Uniform
-
     unsigned int diffuseNr = 1;
     unsigned int specularNr = 1;
 
@@ -347,10 +330,7 @@ void TriMesh::draw(GLuint program, const glm::mat4 &model)
     // 上传 Model 矩阵
     glUniformMatrix4fv(glGetUniformLocation(program, "model"), 1, GL_FALSE, &model[0][0]);
 
-
-
-    // 补回材质的高光系数 (Shininess)
-    // 许多光照算法如果 shininess 为 0 会导致高光计算错误，甚至全黑
+    // 补回材质的高光系数
     glUniform1f(glGetUniformLocation(program, "material.shininess"), shininess);
 
     glBindVertexArray(vao);

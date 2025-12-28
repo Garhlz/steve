@@ -23,7 +23,7 @@ find_package(tinyobjloader CONFIG REQUIRED)
 # 2. 源代码管理 & 生成可执行文件
 # ==========================================
 
-# [修改] 定义资源文件变量
+# 定义资源文件变量
 if(WIN32)
 	set(app_icon_resource "${CMAKE_CURRENT_SOURCE_DIR}/assets/steve.rc")
 else()

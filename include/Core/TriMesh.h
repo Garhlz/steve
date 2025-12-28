@@ -37,6 +37,7 @@ public:
 
 	// 支持自动加载贴图 + 自动烘焙材质颜色
 	void readObjTiny(const std::string &filename);
+
 	// 新增一个只画几何体的方法，用于阴影 Pass 或者自定义 Shader
 	void drawGeometry(GLuint program, const glm::mat4 &model);
 	// 简化原有的 draw
@@ -57,7 +58,7 @@ public:
 protected:
 	// 原始数据
 	std::vector<glm::vec3> vertex_positions;
-	std::vector<glm::vec3> vertex_colors;   // [关键] 存储材质颜色或白色
+	std::vector<glm::vec3> vertex_colors;   // 存储材质颜色或白色
 	std::vector<glm::vec3> vertex_normals;
 	std::vector<glm::vec2> vertex_texcoords;
 
@@ -65,7 +66,7 @@ protected:
 
 	// GPU 数据
 	std::vector<glm::vec3> points;
-	std::vector<glm::vec3> colors;          // [关键] 传给 layout=3
+	std::vector<glm::vec3> colors;          // 传给 layout=3
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> texcoords;
 
